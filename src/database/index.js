@@ -18,7 +18,16 @@ const persist = () => {
 
 const normalizeParams = (params) => {
   if (params.length === 1 && params[0] && typeof params[0] === 'object' && !Array.isArray(params[0])) {
-    return params[0];
+    const input = params[0];
+    const normalized = {};
+    Object.entries(input).forEach(([key, value]) => {
+      const safeValue = value === undefined ? null : value;
+      normalized[key] = safeValue;
+      normalized[`@${key}`] = safeValue;
+      normalized[`:${key}`] = safeValue;
+      normalized[`$${key}`] = safeValue;
+    });
+    return normalized;
   }
   return params;
 };
