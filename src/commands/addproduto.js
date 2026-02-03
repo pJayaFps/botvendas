@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createProduct } = require('../database/models/products');
 const { buildPremiumEmbed } = require('../utils/embeds');
 const { isAdmin } = require('../utils/permissions');
@@ -15,7 +15,7 @@ module.exports = {
     .addStringOption((option) => option.setName('imagem').setDescription('URL da imagem premium')),
   async execute(interaction) {
     if (!isAdmin(interaction.member)) {
-      return interaction.reply({ content: 'Apenas administradores podem usar este comando.', ephemeral: true });
+      return interaction.reply({ content: 'Apenas administradores podem usar este comando.', flags: MessageFlags.Ephemeral });
     }
 
     const data = {
@@ -32,6 +32,6 @@ module.exports = {
       title: 'Produto Adicionado',
       description: `Produto ${data.name} cadastrado com sucesso (#${id}).`
     });
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 };

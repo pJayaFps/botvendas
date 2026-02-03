@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { buildPremiumEmbed } = require('../utils/embeds');
 const { answerSupport } = require('../utils/ai');
 
@@ -8,7 +8,7 @@ module.exports = {
     .setDescription('Fale com o atendimento inteligente')
     .addStringOption((option) => option.setName('mensagem').setDescription('Sua dúvida')),
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const question = interaction.options.getString('mensagem') || 'Olá, quero ajuda com produtos e entrega.';
     const response = await answerSupport({ question });
     const embed = buildPremiumEmbed({

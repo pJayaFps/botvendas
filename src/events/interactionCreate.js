@@ -1,4 +1,4 @@
-const { AttachmentBuilder } = require('discord.js');
+const { AttachmentBuilder, MessageFlags } = require('discord.js');
 const { getOrCreateCart, addItem, listCartItems, updateItemQuantity, clearCart, closeCart } = require('../database/models/cart');
 const { getProduct, decrementStock } = require('../database/models/products');
 const { createOrder, updateOrderStatus } = require('../database/models/orders');
@@ -24,7 +24,7 @@ module.exports = {
         if (interaction.replied || interaction.deferred) {
           await interaction.editReply({ content: message });
         } else {
-          await interaction.reply({ content: message, ephemeral: true });
+          await interaction.reply({ content: message, flags: MessageFlags.Ephemeral });
         }
       }
     }
@@ -40,12 +40,12 @@ module.exports = {
         const productId = Number(interaction.customId.split('catalog-add-')[1]);
         const product = getProduct(productId);
         if (!product) {
-          return interaction.reply({ content: 'Produto não encontrado.', ephemeral: true });
+          return interaction.reply({ content: 'Produto não encontrado.', flags: MessageFlags.Ephemeral });
         }
         const cart = getOrCreateCart(interaction.user.id);
         addItem(cart.id, productId, 1);
         const view = buildCartView(cart.id);
-        return interaction.reply({ embeds: [view.embed], components: view.components, ephemeral: true });
+        return interaction.reply({ embeds: [view.embed], components: view.components, flags: MessageFlags.Ephemeral });
       }
 
       if (interaction.customId.startsWith('catalog-prev-') || interaction.customId.startsWith('catalog-next-')) {
@@ -69,7 +69,7 @@ module.exports = {
         const items = listCartItems(cart.id);
         const target = items.find((item) => item.cart_item_id === itemId);
         if (!target) {
-          return interaction.reply({ content: 'Item não encontrado.', ephemeral: true });
+          return interaction.reply({ content: 'Item não encontrado.', flags: MessageFlags.Ephemeral });
         }
         if (action === 'increase') updateItemQuantity(itemId, target.quantity + 1);
         if (action === 'decrease') updateItemQuantity(itemId, target.quantity - 1);
@@ -79,7 +79,7 @@ module.exports = {
       }
 
       if (interaction.customId === 'cart-checkout') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const cart = getOrCreateCart(interaction.user.id);
         const items = listCartItems(cart.id);
         if (!items.length) {

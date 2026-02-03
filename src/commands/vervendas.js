@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { listOrders } = require('../database/models/orders');
 const { buildPremiumEmbed } = require('../utils/embeds');
 const { formatCurrency } = require('../utils/format');
@@ -10,7 +10,7 @@ module.exports = {
     .setDescription('Ver resumo de vendas (admin)'),
   async execute(interaction) {
     if (!isAdmin(interaction.member)) {
-      return interaction.reply({ content: 'Apenas administradores podem usar este comando.', ephemeral: true });
+      return interaction.reply({ content: 'Apenas administradores podem usar este comando.', flags: MessageFlags.Ephemeral });
     }
 
     const orders = listOrders().slice(0, 5);
@@ -26,6 +26,6 @@ module.exports = {
       fields: fields.length ? fields : [{ name: 'Sem vendas', value: 'Nenhum pedido registrado.' }]
     });
 
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 };

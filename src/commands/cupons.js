@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { listCoupons } = require('../database/models/coupons');
 const { buildPremiumEmbed } = require('../utils/embeds');
 
@@ -18,6 +18,6 @@ module.exports = {
       description: 'Economize com nossos cupons secretos.',
       fields: fields.length ? fields : [{ name: 'Sem cupons', value: 'Nenhum cupom ativo no momento.' }]
     });
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 };

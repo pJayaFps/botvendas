@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { deleteProduct } = require('../database/models/products');
 const { buildPremiumEmbed } = require('../utils/embeds');
 const { isAdmin } = require('../utils/permissions');
@@ -10,7 +10,7 @@ module.exports = {
     .addIntegerOption((option) => option.setName('id').setDescription('ID do produto').setRequired(true)),
   async execute(interaction) {
     if (!isAdmin(interaction.member)) {
-      return interaction.reply({ content: 'Apenas administradores podem usar este comando.', ephemeral: true });
+      return interaction.reply({ content: 'Apenas administradores podem usar este comando.', flags: MessageFlags.Ephemeral });
     }
 
     const id = interaction.options.getInteger('id');
@@ -19,6 +19,6 @@ module.exports = {
       title: 'Produto Removido',
       description: `Produto #${id} foi removido do catálogo.`
     });
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 };

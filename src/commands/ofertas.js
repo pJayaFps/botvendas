@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { listProducts } = require('../database/models/products');
 const { buildPremiumEmbed } = require('../utils/embeds');
 const { formatCurrency } = require('../utils/format');
@@ -20,6 +20,6 @@ module.exports = {
       fields: fields.length ? fields : [{ name: 'Sem ofertas', value: 'Cadastre produtos para criar ofertas.' }],
       image: products[0]?.image_url || undefined
     });
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 };

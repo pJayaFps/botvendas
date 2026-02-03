@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { updateProduct, getProduct } = require('../database/models/products');
 const { buildPremiumEmbed } = require('../utils/embeds');
 const { isAdmin } = require('../utils/permissions');
@@ -17,13 +17,13 @@ module.exports = {
     .addBooleanOption((option) => option.setName('ativo').setDescription('Produto ativo?')),
   async execute(interaction) {
     if (!isAdmin(interaction.member)) {
-      return interaction.reply({ content: 'Apenas administradores podem usar este comando.', ephemeral: true });
+      return interaction.reply({ content: 'Apenas administradores podem usar este comando.', flags: MessageFlags.Ephemeral });
     }
 
     const id = interaction.options.getInteger('id');
     const product = getProduct(id);
     if (!product) {
-      return interaction.reply({ content: 'Produto não encontrado.', ephemeral: true });
+      return interaction.reply({ content: 'Produto não encontrado.', flags: MessageFlags.Ephemeral });
     }
 
     const data = {
@@ -41,6 +41,6 @@ module.exports = {
       title: 'Produto Atualizado',
       description: `Produto #${id} atualizado com sucesso.`
     });
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 };

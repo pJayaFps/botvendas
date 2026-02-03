@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { upsertCustomer } = require('../database/models/customers');
 const { buildPremiumEmbed } = require('../utils/embeds');
 
@@ -17,6 +17,6 @@ module.exports = {
         { name: 'Vantagem atual', value: customer.level >= 10 ? 'Frete grátis' : customer.level >= 5 ? 'Atendimento VIP' : '5% OFF' }
       ]
     });
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 };

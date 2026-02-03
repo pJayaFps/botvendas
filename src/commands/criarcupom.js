@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createCoupon } = require('../database/models/coupons');
 const { buildPremiumEmbed } = require('../utils/embeds');
 const { isAdmin } = require('../utils/permissions');
@@ -23,7 +23,7 @@ module.exports = {
     .addIntegerOption((option) => option.setName('nivelmin').setDescription('Nível mínimo').setRequired(false)),
   async execute(interaction) {
     if (!isAdmin(interaction.member)) {
-      return interaction.reply({ content: 'Apenas administradores podem usar este comando.', ephemeral: true });
+      return interaction.reply({ content: 'Apenas administradores podem usar este comando.', flags: MessageFlags.Ephemeral });
     }
 
     const data = {
@@ -38,6 +38,6 @@ module.exports = {
       title: 'Cupom Criado',
       description: `Cupom ${data.code} criado com sucesso.`
     });
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 };
