@@ -1,6 +1,6 @@
 const { AttachmentBuilder, MessageFlags } = require('discord.js');
 const { getOrCreateCart, addItem, listCartItems, updateItemQuantity, clearCart, closeCart } = require('../database/models/cart');
-const { getProduct, decrementStock } = require('../database/models/products');
+const { getProduct, decrementStock, listProducts } = require('../database/models/products');
 const { createOrder, updateOrderStatus } = require('../database/models/orders');
 const { upsertCustomer, addXp } = require('../database/models/customers');
 const { buildCatalogView, parseCatalogState } = require('../utils/catalog');
@@ -36,6 +36,27 @@ module.exports = {
     }
 
     if (interaction.isButton()) {
+      if (interaction.customId === 'panel-open-catalog') {
+        const view = buildCatalogView({});
+        return interaction.reply({ embeds: [view.embed], components: view.components, flags: MessageFlags.Ephemeral });
+      }
+
+      if (interaction.customId === 'panel-open-offers') {
+        const products = listProducts().slice(0, 3);
+        const fields = products.map((product) => ({
+          name: `${product.name} • ${formatCurrency(product.price)}`,
+          value: product.description,
+          inline: false
+        }));
+        const embed = buildPremiumEmbed({
+          title: 'Ofertas Premium',
+          description: 'Seleção especial com descontos VIP.',
+          fields: fields.length ? fields : [{ name: 'Sem ofertas', value: 'Cadastre produtos para criar ofertas.' }],
+          image: products[0]?.image_url || undefined
+        });
+        return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      }
+
       if (interaction.customId.startsWith('catalog-add-')) {
         const productId = Number(interaction.customId.split('catalog-add-')[1]);
         const product = getProduct(productId);
