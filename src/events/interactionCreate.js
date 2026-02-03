@@ -175,6 +175,10 @@ module.exports = {
             description: '✅ Pagamento confirmado! Obrigado pela sua compra.'
           });
           await interaction.editReply({ embeds: [approvedEmbed], components: [] });
+          await interaction.followUp({ content: 'Este canal será deletado em instantes...', flags: MessageFlags.Ephemeral });
+          setTimeout(async () => {
+            await interaction.channel?.delete('Checkout finalizado');
+          }, 5000);
         }, 3000);
       }
     }
