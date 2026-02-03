@@ -16,29 +16,43 @@ const persist = () => {
   fs.writeFileSync(dbPath, Buffer.from(data));
 };
 
+const normalizeParams = (params) => {
+  if (params.length === 1 && params[0] && typeof params[0] === 'object' && !Array.isArray(params[0])) {
+    return params[0];
+  }
+  return params;
+};
+
+const getLastInsertId = () => {
+  const stmt = database.prepare('SELECT last_insert_rowid() as id');
+  const row = stmt.step() ? stmt.getAsObject() : { id: 0 };
+  stmt.free();
+  return row.id;
+};
+
 const prepare = (statement) => {
   return {
     run: (...params) => {
       const stmt = database.prepare(statement);
-      stmt.bind(params);
+      stmt.bind(normalizeParams(params));
       while (stmt.step()) {
         // drain
       }
       stmt.free();
       const changes = database.getRowsModified();
       persist();
-      return { changes };
+      return { changes, lastInsertRowid: getLastInsertId() };
     },
     get: (...params) => {
       const stmt = database.prepare(statement);
-      stmt.bind(params);
+      stmt.bind(normalizeParams(params));
       const row = stmt.step() ? stmt.getAsObject() : undefined;
       stmt.free();
       return row;
     },
     all: (...params) => {
       const stmt = database.prepare(statement);
-      stmt.bind(params);
+      stmt.bind(normalizeParams(params));
       const rows = [];
       while (stmt.step()) {
         rows.push(stmt.getAsObject());
