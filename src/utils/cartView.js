@@ -16,7 +16,7 @@ const buildCartView = (cartId) => {
   const embed = buildPremiumEmbed({
     title: 'Carrinho Premium',
     description: items.length ? 'Gerencie seu carrinho em tempo real.' : 'Seu carrinho está vazio. Explore o catálogo! ',
-    fields: fields.length ? fields : [{ name: 'Sem itens', value: 'Use /catalogo para adicionar produtos.' }],
+    fields: fields.length ? fields : [{ name: 'Sem itens', value: 'Use /painel para adicionar produtos.' }],
     image: items[0]?.image_url || undefined
   });
 

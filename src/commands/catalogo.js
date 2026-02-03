@@ -3,10 +3,10 @@ const { buildCatalogView } = require('../utils/catalog');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('catalogo')
-    .setDescription('Veja o catálogo premium de produtos'),
+    .setName('painel')
+    .setDescription('Abra o painel premium de produtos'),
   async execute(interaction) {
     const view = buildCatalogView({});
-    await interaction.reply({ embeds: [view.embed], components: view.components, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [view.embed], components: view.components });
   }
 };
