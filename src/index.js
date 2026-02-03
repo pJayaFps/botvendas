@@ -12,6 +12,7 @@ const start = async () => {
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]
   });
 
+  client.config = config;
   client.commands = new Collection();
 
   const commandsPath = path.join(__dirname, 'commands');

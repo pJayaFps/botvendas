@@ -141,19 +141,13 @@ module.exports = {
 
         const actionRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`payment-request-${order.id}`)
-            .setLabel('Já paguei (solicitar verificação)')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId(`payment-approve-${order.id}`)
-            .setLabel('Aprovar pagamento')
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId(`payment-reject-${order.id}`)
-            .setLabel('Rejeitar pagamento')
-            .setStyle(ButtonStyle.Danger)
+            .setCustomId('payment-info')
+            .setLabel('Aguardando pagamento automático')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true)
         );
 
+        embed.addFields({ name: 'Envie o comprovante', value: 'Envie aqui o comprovante do pagamento para análise.' });
         await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [actionRow], files: [attachment] });
 
         const recommendation = await recommendProducts({ cartItems: items });
@@ -167,45 +161,49 @@ module.exports = {
         return interaction.editReply({ content: `Checkout criado! Acesse ${channel} para finalizar o pagamento.` });
       }
 
-      if (interaction.customId.startsWith('payment-request-')) {
-        const orderId = Number(interaction.customId.split('-').pop());
-        updateOrderStatus(orderId, 'EM_ANALISE');
-        const embed = buildPremiumEmbed({
-          title: 'Pagamento em Análise',
-          description: 'Recebemos sua solicitação. Nossa equipe vai validar o pagamento.'
-        });
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      }
-
-      if (interaction.customId.startsWith('payment-approve-')) {
-        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-          return interaction.reply({ content: 'Apenas administradores podem aprovar pagamentos.', flags: MessageFlags.Ephemeral });
+      if (interaction.customId.startsWith('receipt-approve-')) {
+        const { getReceipt, clearReceipt } = require('../utils/receiptStore');
+        const orderId = interaction.customId.split('-').pop();
+        const receipt = getReceipt(orderId);
+        if (!receipt) {
+          return interaction.reply({ content: 'Comprovante não encontrado.', flags: MessageFlags.Ephemeral });
         }
-        const orderId = Number(interaction.customId.split('-').pop());
-        await interaction.deferUpdate();
+        if (interaction.user.id !== interaction.client.config?.discord?.adminId && !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+          return interaction.reply({ content: 'Apenas o administrador pode aprovar.', flags: MessageFlags.Ephemeral });
+        }
         updateOrderStatus(orderId, 'APROVADO');
         const approvedEmbed = buildPremiumEmbed({
           title: 'Pagamento Aprovado',
           description: '✅ Pagamento confirmado! Obrigado pela sua compra.'
         });
-        await interaction.editReply({ embeds: [approvedEmbed], components: [] });
-        await interaction.followUp({ content: 'Este canal será deletado em instantes...', flags: MessageFlags.Ephemeral });
+        const channel = await interaction.client.channels.fetch(receipt.channelId);
+        await channel.send({ content: `<@${receipt.userId}>`, embeds: [approvedEmbed] });
+        await interaction.reply({ content: 'Pagamento aprovado e cliente notificado.', flags: MessageFlags.Ephemeral });
+        clearReceipt(orderId);
         setTimeout(async () => {
-          await interaction.channel?.delete('Checkout finalizado');
+          await channel.delete('Checkout finalizado');
         }, 5000);
       }
 
-      if (interaction.customId.startsWith('payment-reject-')) {
-        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-          return interaction.reply({ content: 'Apenas administradores podem rejeitar pagamentos.', flags: MessageFlags.Ephemeral });
+      if (interaction.customId.startsWith('receipt-reject-')) {
+        const { getReceipt, clearReceipt } = require('../utils/receiptStore');
+        const orderId = interaction.customId.split('-').pop();
+        const receipt = getReceipt(orderId);
+        if (!receipt) {
+          return interaction.reply({ content: 'Comprovante não encontrado.', flags: MessageFlags.Ephemeral });
         }
-        const orderId = Number(interaction.customId.split('-').pop());
+        if (interaction.user.id !== interaction.client.config?.discord?.adminId && !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+          return interaction.reply({ content: 'Apenas o administrador pode reprovar.', flags: MessageFlags.Ephemeral });
+        }
         updateOrderStatus(orderId, 'CANCELADO');
         const rejectedEmbed = buildPremiumEmbed({
           title: 'Pagamento Não Confirmado',
-          description: '❌ Não identificamos o pagamento. Tente novamente ou fale com o suporte.'
+          description: '❌ Não identificamos o pagamento. Envie outro comprovante.'
         });
-        await interaction.reply({ embeds: [rejectedEmbed], flags: MessageFlags.Ephemeral });
+        const channel = await interaction.client.channels.fetch(receipt.channelId);
+        await channel.send({ content: `<@${receipt.userId}>`, embeds: [rejectedEmbed] });
+        await interaction.reply({ content: 'Pagamento reprovado e cliente notificado.', flags: MessageFlags.Ephemeral });
+        clearReceipt(orderId);
       }
 
     }
