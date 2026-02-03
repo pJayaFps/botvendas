@@ -141,9 +141,17 @@ module.exports = {
 
         const actionRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`payment-confirm-${order.id}`)
-            .setLabel('Já paguei')
-            .setStyle(ButtonStyle.Success)
+            .setCustomId(`payment-request-${order.id}`)
+            .setLabel('Já paguei (solicitar verificação)')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId(`payment-approve-${order.id}`)
+            .setLabel('Aprovar pagamento')
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(`payment-reject-${order.id}`)
+            .setLabel('Rejeitar pagamento')
+            .setStyle(ButtonStyle.Danger)
         );
 
         await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [actionRow], files: [attachment] });
@@ -159,27 +167,45 @@ module.exports = {
         return interaction.editReply({ content: `Checkout criado! Acesse ${channel} para finalizar o pagamento.` });
       }
 
-      if (interaction.customId.startsWith('payment-confirm-')) {
+      if (interaction.customId.startsWith('payment-request-')) {
+        const orderId = Number(interaction.customId.split('-').pop());
+        updateOrderStatus(orderId, 'EM_ANALISE');
+        const embed = buildPremiumEmbed({
+          title: 'Pagamento em Análise',
+          description: 'Recebemos sua solicitação. Nossa equipe vai validar o pagamento.'
+        });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      }
+
+      if (interaction.customId.startsWith('payment-approve-')) {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+          return interaction.reply({ content: 'Apenas administradores podem aprovar pagamentos.', flags: MessageFlags.Ephemeral });
+        }
         const orderId = Number(interaction.customId.split('-').pop());
         await interaction.deferUpdate();
-        const embed = buildPremiumEmbed({
-          title: 'Confirmação de Pagamento',
-          description: '⏳ Confirmando o pagamento...'
+        updateOrderStatus(orderId, 'APROVADO');
+        const approvedEmbed = buildPremiumEmbed({
+          title: 'Pagamento Aprovado',
+          description: '✅ Pagamento confirmado! Obrigado pela sua compra.'
         });
-        await interaction.editReply({ embeds: [embed], components: [] });
-
+        await interaction.editReply({ embeds: [approvedEmbed], components: [] });
+        await interaction.followUp({ content: 'Este canal será deletado em instantes...', flags: MessageFlags.Ephemeral });
         setTimeout(async () => {
-          updateOrderStatus(orderId, 'APROVADO');
-          const approvedEmbed = buildPremiumEmbed({
-            title: 'Pagamento Aprovado',
-            description: '✅ Pagamento confirmado! Obrigado pela sua compra.'
-          });
-          await interaction.editReply({ embeds: [approvedEmbed], components: [] });
-          await interaction.followUp({ content: 'Este canal será deletado em instantes...', flags: MessageFlags.Ephemeral });
-          setTimeout(async () => {
-            await interaction.channel?.delete('Checkout finalizado');
-          }, 5000);
-        }, 3000);
+          await interaction.channel?.delete('Checkout finalizado');
+        }, 5000);
+      }
+
+      if (interaction.customId.startsWith('payment-reject-')) {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+          return interaction.reply({ content: 'Apenas administradores podem rejeitar pagamentos.', flags: MessageFlags.Ephemeral });
+        }
+        const orderId = Number(interaction.customId.split('-').pop());
+        updateOrderStatus(orderId, 'CANCELADO');
+        const rejectedEmbed = buildPremiumEmbed({
+          title: 'Pagamento Não Confirmado',
+          description: '❌ Não identificamos o pagamento. Tente novamente ou fale com o suporte.'
+        });
+        await interaction.reply({ embeds: [rejectedEmbed], flags: MessageFlags.Ephemeral });
       }
     }
   }
