@@ -32,7 +32,7 @@ const start = async () => {
     }
   }
 
-  startWebServer(client);
+  startWebServer();
 
   client.login(config.discord.token);
 };

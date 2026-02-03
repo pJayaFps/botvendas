@@ -16,11 +16,6 @@ DISCORD_GUILD_ID=opcional_para_comandos_guild
 DB_PATH=./data/via-bot.sqlite
 WEB_PORT=3000
 WEB_BASE_URL=http://localhost:3000
-PAYMENT_PROVIDER=mercadopago # mercadopago | asaas | mock
-MERCADOPAGO_TOKEN=seu_token_mp
-ASAAS_TOKEN=seu_token_asaas
-WEBHOOK_SECRET=seu_token_webhook
-PAYER_EMAIL=cliente@viabot.dev
 PIX_KEY=sua-chave-pix
 PIX_NAME=VIA BOT STORE
 PIX_CITY=SAO PAULO
@@ -41,10 +36,4 @@ O painel web fica em `http://localhost:3000`.
 O projeto usa SQLite via `sql.js` (WebAssembly), evitando dependências nativas e facilitando a instalação em Windows e Linux.
 
 ## Webhook PIX
-Configure o webhook no MercadoPago/Asaas apontando para:
-
-```
-POST http://SEU_DOMINIO/webhookpix
-```
-
-Quando o pagamento for confirmado, o bot atualiza o pedido para **APROVADO** e envia a mensagem no ticket.
+O fluxo atual usa aprovação manual via botões no ticket. Quando desejar integração automática, podemos reativar o webhook.

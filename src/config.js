@@ -14,11 +14,6 @@ module.exports = {
     baseUrl: process.env.WEB_BASE_URL || 'http://localhost:3000'
   },
   payments: {
-    provider: process.env.PAYMENT_PROVIDER || 'mock',
-    mercadoPagoToken: process.env.MERCADOPAGO_TOKEN || '',
-    asaasToken: process.env.ASAAS_TOKEN || '',
-    webhookSecret: process.env.WEBHOOK_SECRET || '',
-    payerEmail: process.env.PAYER_EMAIL || 'cliente@viabot.dev',
     pixKey: process.env.PIX_KEY || 'SUA-CHAVE-PIX-AQUI',
     pixName: process.env.PIX_NAME || 'VIA BOT STORE',
     pixCity: process.env.PIX_CITY || 'SAO PAULO'
