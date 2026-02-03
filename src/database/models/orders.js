@@ -12,7 +12,12 @@ const createOrder = (userId, items, total, status = 'PENDENTE') => {
   return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 };
 
-const listOrders = () => db.prepare('SELECT * FROM orders ORDER BY id DESC').all();
+const listOrders = (status) => {
+  if (status) {
+    return db.prepare('SELECT * FROM orders WHERE status = ? ORDER BY id DESC').all(status);
+  }
+  return db.prepare('SELECT * FROM orders ORDER BY id DESC').all();
+};
 
 const listOrderItems = (orderId) => {
   return db.prepare(`

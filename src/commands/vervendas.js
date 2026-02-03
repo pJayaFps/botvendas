@@ -13,7 +13,7 @@ module.exports = {
       return interaction.reply({ content: 'Apenas administradores podem usar este comando.', flags: MessageFlags.Ephemeral });
     }
 
-    const orders = listOrders().slice(0, 5);
+    const orders = listOrders('APROVADO').slice(0, 5);
     const fields = orders.map((order) => ({
       name: `Pedido #${order.id} • ${order.status}`,
       value: `Cliente: ${order.user_id} | Total: ${formatCurrency(order.total)}`,

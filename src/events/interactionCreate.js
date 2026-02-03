@@ -1,4 +1,4 @@
-const { AttachmentBuilder, MessageFlags } = require('discord.js');
+const { AttachmentBuilder, MessageFlags, ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { getOrCreateCart, addItem, listCartItems, updateItemQuantity, clearCart, closeCart } = require('../database/models/cart');
 const { getProduct, decrementStock, listProducts } = require('../database/models/products');
 const { createOrder, updateOrderStatus } = require('../database/models/orders');
@@ -114,23 +114,68 @@ module.exports = {
         upsertCustomer(interaction.user.id, interaction.user.username);
         addXp(interaction.user.id, Math.round(total));
 
+        if (!interaction.guild) {
+          return interaction.editReply({ content: 'Este checkout precisa ser feito dentro de um servidor.' });
+        }
+
+        const channelName = `checkout-${interaction.user.username}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        const channel = await interaction.guild.channels.create({
+          name: channelName.slice(0, 90) || `checkout-${interaction.user.id}`,
+          type: ChannelType.GuildText,
+          topic: `Checkout VIA BOT • Pedido #${order.id}`,
+          permissionOverwrites: [
+            { id: interaction.guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
+            { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+            { id: interaction.client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] }
+          ]
+        });
+
         const { buffer, payload } = await generatePixQr({ amount: total, txid: `VIA${order.id}` });
         const attachment = new AttachmentBuilder(buffer, { name: `pix-${order.id}.png` });
         const embed = buildPremiumEmbed({
           title: 'Pagamento PIX',
-          description: `Valor: ${formatCurrency(total)}\nStatus: **${order.status}**\nCopie o payload abaixo ou use o QR Code.`,
+          description: `Valor: ${formatCurrency(total)}\nStatus: **PENDENTE**\nCopie o payload abaixo ou use o QR Code.`,
           fields: [{ name: 'Payload', value: `\`${payload}\`` }]
         });
         embed.setImage(`attachment://pix-${order.id}.png`);
+
+        const actionRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`payment-confirm-${order.id}`)
+            .setLabel('Já paguei')
+            .setStyle(ButtonStyle.Success)
+        );
+
+        await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [actionRow], files: [attachment] });
 
         const recommendation = await recommendProducts({ cartItems: items });
         const recoEmbed = buildPremiumEmbed({
           title: 'Recomendação IA',
           description: recommendation
         });
+        await channel.send({ embeds: [recoEmbed] });
 
         updateOrderStatus(order.id, 'PENDENTE');
-        return interaction.editReply({ embeds: [embed, recoEmbed], files: [attachment] });
+        return interaction.editReply({ content: `Checkout criado! Acesse ${channel} para finalizar o pagamento.` });
+      }
+
+      if (interaction.customId.startsWith('payment-confirm-')) {
+        const orderId = Number(interaction.customId.split('-').pop());
+        await interaction.deferUpdate();
+        const embed = buildPremiumEmbed({
+          title: 'Confirmação de Pagamento',
+          description: '⏳ Confirmando o pagamento...'
+        });
+        await interaction.editReply({ embeds: [embed], components: [] });
+
+        setTimeout(async () => {
+          updateOrderStatus(orderId, 'APROVADO');
+          const approvedEmbed = buildPremiumEmbed({
+            title: 'Pagamento Aprovado',
+            description: '✅ Pagamento confirmado! Obrigado pela sua compra.'
+          });
+          await interaction.editReply({ embeds: [approvedEmbed], components: [] });
+        }, 3000);
       }
     }
   }
