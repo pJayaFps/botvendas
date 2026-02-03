@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const config = require('../config');
-const { db } = require('../database');
+const { db, init } = require('../database');
 
 const app = express();
 
@@ -31,8 +31,12 @@ app.get('/clientes', (req, res) => {
   res.render('customers', { customers });
 });
 
-app.listen(config.web.port, () => {
-  console.log(`[WEB] Painel rodando em ${config.web.baseUrl}`);
-});
+const start = async () => {
+  await init();
+  app.listen(config.web.port, () => {
+    console.log(`[WEB] Painel rodando em ${config.web.baseUrl}`);
+  });
+  return app;
+};
 
-module.exports = () => app;
+module.exports = start;

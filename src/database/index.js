@@ -1,15 +1,66 @@
 const fs = require('fs');
 const path = require('path');
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const config = require('../config');
 
 const dbPath = path.resolve(config.database.path);
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
-const db = new Database(dbPath);
+let sqlModule;
+let database;
+let initialized = false;
 
-const init = () => {
-  db.exec(`
+const persist = () => {
+  if (!database) return;
+  const data = database.export();
+  fs.writeFileSync(dbPath, Buffer.from(data));
+};
+
+const prepare = (statement) => {
+  return {
+    run: (...params) => {
+      const stmt = database.prepare(statement);
+      stmt.bind(params);
+      while (stmt.step()) {
+        // drain
+      }
+      stmt.free();
+      const changes = database.getRowsModified();
+      persist();
+      return { changes };
+    },
+    get: (...params) => {
+      const stmt = database.prepare(statement);
+      stmt.bind(params);
+      const row = stmt.step() ? stmt.getAsObject() : undefined;
+      stmt.free();
+      return row;
+    },
+    all: (...params) => {
+      const stmt = database.prepare(statement);
+      stmt.bind(params);
+      const rows = [];
+      while (stmt.step()) {
+        rows.push(stmt.getAsObject());
+      }
+      stmt.free();
+      return rows;
+    }
+  };
+};
+
+const exec = (statement) => {
+  database.exec(statement);
+  persist();
+};
+
+const init = async () => {
+  if (initialized) return;
+  sqlModule = await initSqlJs({ locateFile: (file) => path.join(__dirname, '../../node_modules/sql.js/dist', file) });
+  const exists = fs.existsSync(dbPath);
+  const fileBuffer = exists ? fs.readFileSync(dbPath) : undefined;
+  database = new sqlModule.Database(fileBuffer);
+  exec(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,6 +118,12 @@ const init = () => {
       active INTEGER NOT NULL DEFAULT 1
     );
   `);
+  initialized = true;
+};
+
+const db = {
+  prepare,
+  exec
 };
 
 module.exports = { db, init };

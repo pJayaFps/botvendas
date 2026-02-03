@@ -31,3 +31,6 @@ npm start
 ```
 
 O painel web fica em `http://localhost:3000`.
+
+## Observação sobre o banco
+O projeto usa SQLite via `sql.js` (WebAssembly), evitando dependências nativas e facilitando a instalação em Windows e Linux.
