@@ -140,6 +140,20 @@ const init = async () => {
       min_level INTEGER DEFAULT 1,
       active INTEGER NOT NULL DEFAULT 1
     );
+    CREATE TABLE IF NOT EXISTS payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      payment_id TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      ticket_channel_id TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      amount REAL NOT NULL,
+      payload TEXT,
+      status TEXT NOT NULL DEFAULT 'PENDENTE',
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(order_id) REFERENCES orders(id)
+    );
   `);
   initialized = true;
 };

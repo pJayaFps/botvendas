@@ -9,6 +9,8 @@ const { buildPremiumEmbed } = require('../utils/embeds');
 const { calculateTotal, formatCurrency } = require('../utils/format');
 const { generatePixQr } = require('../utils/pix');
 const { recommendProducts } = require('../utils/ai');
+const { createPixCharge } = require('../utils/payments');
+const { createPayment } = require('../database/models/payments');
 
 module.exports = {
   name: 'interactionCreate',
@@ -130,31 +132,50 @@ module.exports = {
           ]
         });
 
-        const { buffer, payload } = await generatePixQr({ amount: total, txid: `VIA${order.id}` });
-        const attachment = new AttachmentBuilder(buffer, { name: `pix-${order.id}.png` });
+        const charge = await createPixCharge({ amount: total, description: `Pedido #${order.id}`, externalReference: `order-${order.id}` });
+        let attachment;
+        let payload = charge.payload;
+        if (charge.qrBase64) {
+          const buffer = Buffer.from(charge.qrBase64, 'base64');
+          attachment = new AttachmentBuilder(buffer, { name: `pix-${order.id}.png` });
+        } else if (charge.qrBuffer) {
+          attachment = new AttachmentBuilder(charge.qrBuffer, { name: `pix-${order.id}.png` });
+        } else if (payload) {
+          const { buffer } = await generatePixQr({ amount: total, txid: `VIA${order.id}` });
+          attachment = new AttachmentBuilder(buffer, { name: `pix-${order.id}.png` });
+        }
         const embed = buildPremiumEmbed({
           title: 'Pagamento PIX',
           description: `Valor: ${formatCurrency(total)}\nStatus: **PENDENTE**\nCopie o payload abaixo ou use o QR Code.`,
-          fields: [{ name: 'Payload', value: `\`${payload}\`` }]
+          fields: [{ name: 'Payload', value: payload ? `\`${payload}\`` : 'Payload indisponível, use o QR Code.' }]
         });
-        embed.setImage(`attachment://pix-${order.id}.png`);
+        if (attachment) {
+          embed.setImage(`attachment://pix-${order.id}.png`);
+        }
 
-        const actionRow = new ActionRowBuilder().addComponents(
+        const infoRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`payment-request-${order.id}`)
-            .setLabel('Já paguei (solicitar verificação)')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId(`payment-approve-${order.id}`)
-            .setLabel('Aprovar pagamento')
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId(`payment-reject-${order.id}`)
-            .setLabel('Rejeitar pagamento')
-            .setStyle(ButtonStyle.Danger)
+            .setCustomId('payment-info')
+            .setLabel('Aguardando confirmação automática')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true)
         );
 
-        await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [actionRow], files: [attachment] });
+        const paymentRecord = {
+          order_id: order.id,
+          payment_id: charge.id,
+          provider: charge.provider,
+          user_id: interaction.user.id,
+          ticket_channel_id: channel.id,
+          product_name: items.map((item) => item.name).join(', '),
+          amount: total,
+          payload,
+          status: 'PENDENTE',
+          created_at: new Date().toISOString()
+        };
+        createPayment(paymentRecord);
+
+        await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [infoRow], files: attachment ? [attachment] : [] });
 
         const recommendation = await recommendProducts({ cartItems: items });
         const recoEmbed = buildPremiumEmbed({
@@ -167,46 +188,6 @@ module.exports = {
         return interaction.editReply({ content: `Checkout criado! Acesse ${channel} para finalizar o pagamento.` });
       }
 
-      if (interaction.customId.startsWith('payment-request-')) {
-        const orderId = Number(interaction.customId.split('-').pop());
-        updateOrderStatus(orderId, 'EM_ANALISE');
-        const embed = buildPremiumEmbed({
-          title: 'Pagamento em Análise',
-          description: 'Recebemos sua solicitação. Nossa equipe vai validar o pagamento.'
-        });
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      }
-
-      if (interaction.customId.startsWith('payment-approve-')) {
-        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-          return interaction.reply({ content: 'Apenas administradores podem aprovar pagamentos.', flags: MessageFlags.Ephemeral });
-        }
-        const orderId = Number(interaction.customId.split('-').pop());
-        await interaction.deferUpdate();
-        updateOrderStatus(orderId, 'APROVADO');
-        const approvedEmbed = buildPremiumEmbed({
-          title: 'Pagamento Aprovado',
-          description: '✅ Pagamento confirmado! Obrigado pela sua compra.'
-        });
-        await interaction.editReply({ embeds: [approvedEmbed], components: [] });
-        await interaction.followUp({ content: 'Este canal será deletado em instantes...', flags: MessageFlags.Ephemeral });
-        setTimeout(async () => {
-          await interaction.channel?.delete('Checkout finalizado');
-        }, 5000);
-      }
-
-      if (interaction.customId.startsWith('payment-reject-')) {
-        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-          return interaction.reply({ content: 'Apenas administradores podem rejeitar pagamentos.', flags: MessageFlags.Ephemeral });
-        }
-        const orderId = Number(interaction.customId.split('-').pop());
-        updateOrderStatus(orderId, 'CANCELADO');
-        const rejectedEmbed = buildPremiumEmbed({
-          title: 'Pagamento Não Confirmado',
-          description: '❌ Não identificamos o pagamento. Tente novamente ou fale com o suporte.'
-        });
-        await interaction.reply({ embeds: [rejectedEmbed], flags: MessageFlags.Ephemeral });
-      }
     }
   }
 };
