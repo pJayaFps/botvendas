@@ -1,7 +1,7 @@
 const { buildPremiumEmbed } = require('../utils/embeds');
 
 module.exports = {
-  name: 'ready',
+  name: 'clientReady',
   once: true,
   execute(client) {
     const embed = buildPremiumEmbed({

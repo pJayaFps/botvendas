@@ -14,7 +14,10 @@ const createProduct = (data) => {
     INSERT INTO products (name, description, price, image_url, category, stock, active)
     VALUES (@name, @description, @price, @image_url, @category, @stock, 1)
   `);
-  return stmt.run(data).lastInsertRowid;
+  const result = stmt.run(data);
+  if (result.lastInsertRowid) return result.lastInsertRowid;
+  const fallback = db.prepare('SELECT id FROM products ORDER BY id DESC LIMIT 1').get();
+  return fallback?.id;
 };
 
 const updateProduct = (id, data) => {

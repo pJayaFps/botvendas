@@ -5,7 +5,12 @@ const getOrCreateCart = (userId) => {
   if (existing) return existing;
   const createdAt = new Date().toISOString();
   const result = db.prepare('INSERT INTO carts (user_id, status, created_at) VALUES (?, ?, ?)').run(userId, 'open', createdAt);
-  return db.prepare('SELECT * FROM carts WHERE id = ?').get(result.lastInsertRowid);
+  if (result.lastInsertRowid) {
+    return db.prepare('SELECT * FROM carts WHERE id = ?').get(result.lastInsertRowid);
+  }
+  return db
+    .prepare('SELECT * FROM carts WHERE user_id = ? AND status = ? ORDER BY id DESC')
+    .get(userId, 'open');
 };
 
 const listCartItems = (cartId) => {
