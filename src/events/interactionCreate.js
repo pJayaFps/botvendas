@@ -179,6 +179,7 @@ module.exports = {
         const channel = await interaction.client.channels.fetch(receipt.channelId);
         await channel.send({ content: `<@${receipt.userId}>`, embeds: [approvedEmbed] });
         await interaction.reply({ content: 'Pagamento aprovado e cliente notificado.', flags: MessageFlags.Ephemeral });
+        await channel.send({ content: 'Este canal será deletado em instantes...' });
         clearReceipt(orderId);
         setTimeout(async () => {
           await channel.delete('Checkout finalizado');
