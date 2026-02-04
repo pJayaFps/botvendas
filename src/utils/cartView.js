@@ -1,9 +1,12 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { listCartItems } = require('../database/models/cart');
+const { getCartById, listCartItems } = require('../database/models/cart');
+const { getCouponByCode } = require('../database/models/coupons');
+const { applyCouponDiscount } = require('./coupons');
 const { buildPremiumEmbed } = require('./embeds');
 const { calculateTotal, formatCurrency } = require('./format');
 
 const buildCartView = (cartId) => {
+  const cart = getCartById(cartId);
   const items = listCartItems(cartId);
   const fields = items.map((item) => ({
     name: `${item.name} • ${formatCurrency(item.price)}`,
@@ -12,6 +15,8 @@ const buildCartView = (cartId) => {
   }));
 
   const total = calculateTotal(items);
+  const coupon = cart?.coupon_code ? getCouponByCode(cart.coupon_code) : null;
+  const discountData = applyCouponDiscount(total, coupon);
 
   const embed = buildPremiumEmbed({
     title: 'Carrinho Premium',
@@ -20,7 +25,15 @@ const buildCartView = (cartId) => {
     image: items[0]?.image_url || undefined
   });
 
-  embed.addFields({ name: 'Total', value: formatCurrency(total) });
+  embed.addFields({ name: 'Total', value: formatCurrency(discountData.total) });
+  if (coupon) {
+    const discountLabel = discountData.discount ? `Desconto: ${formatCurrency(discountData.discount)}` : 'Sem desconto aplicado';
+    embed.addFields({
+      name: 'Cupom aplicado',
+      value: `${coupon.code} (${coupon.type}) • ${discountLabel}`,
+      inline: false
+    });
+  }
   if (items.length > 4) {
     embed.addFields({
       name: 'Gerenciamento',
@@ -33,6 +46,10 @@ const buildCartView = (cartId) => {
   if (items.length) {
     const controlRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('cart-clear').setLabel('Limpar').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(coupon ? 'cart-coupon-clear' : 'cart-coupon')
+        .setLabel(coupon ? 'Remover cupom' : 'Aplicar cupom')
+        .setStyle(coupon ? ButtonStyle.Secondary : ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('cart-checkout').setLabel('Finalizar').setStyle(ButtonStyle.Success)
     );
 

@@ -186,6 +186,7 @@ const init = async () => {
   addColumnIfMissing('orders', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('coupons', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('carts', 'bot_id', 'INTEGER DEFAULT 1');
+  addColumnIfMissing('carts', 'coupon_code', 'TEXT');
   addColumnIfMissing('cart_items', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('customers', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('bots', 'discord_bot_id', 'TEXT');

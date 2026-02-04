@@ -17,6 +17,8 @@ const getOrCreateCart = (userId, botId = 1) => {
     .get(userId, botId, 'open');
 };
 
+const getCartById = (cartId) => db.prepare('SELECT * FROM carts WHERE id = ?').get(cartId);
+
 const listCartItems = (cartId) => {
   return db.prepare(`
     SELECT cart_items.id AS cart_item_id, cart_items.quantity, products.id AS product_id, products.name, products.description, products.price, products.image_url
@@ -47,11 +49,18 @@ const clearCart = (cartId) => db.prepare('DELETE FROM cart_items WHERE cart_id =
 
 const closeCart = (cartId) => db.prepare('UPDATE carts SET status = ? WHERE id = ?').run('closed', cartId);
 
+const setCartCoupon = (cartId, code) => db.prepare('UPDATE carts SET coupon_code = ? WHERE id = ?').run(code, cartId);
+
+const clearCartCoupon = (cartId) => db.prepare('UPDATE carts SET coupon_code = NULL WHERE id = ?').run(cartId);
+
 module.exports = {
   getOrCreateCart,
+  getCartById,
   listCartItems,
   addItem,
   updateItemQuantity,
   clearCart,
-  closeCart
+  closeCart,
+  setCartCoupon,
+  clearCartCoupon
 };

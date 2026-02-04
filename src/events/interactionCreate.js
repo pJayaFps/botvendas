@@ -1,8 +1,19 @@
-const { AttachmentBuilder, MessageFlags, ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { getOrCreateCart, addItem, listCartItems, updateItemQuantity, clearCart, closeCart } = require('../database/models/cart');
+const {
+  AttachmentBuilder,
+  MessageFlags,
+  ChannelType,
+  PermissionFlagsBits,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle
+} = require('discord.js');
+const { getOrCreateCart, addItem, listCartItems, updateItemQuantity, clearCart, closeCart, setCartCoupon, clearCartCoupon } = require('../database/models/cart');
 const { getProduct, decrementStock, listProducts } = require('../database/models/products');
 const { createOrder, updateOrderStatus } = require('../database/models/orders');
-const { upsertCustomer, addXp } = require('../database/models/customers');
+const { upsertCustomer, addXp, getCustomer } = require('../database/models/customers');
 const { getBotContext } = require('../database/models/bots');
 const { createSale, updateSaleStatusByOrder } = require('../database/models/sales');
 const { buildCatalogView, parseCatalogState } = require('../utils/catalog');
@@ -11,6 +22,8 @@ const { buildPremiumEmbed } = require('../utils/embeds');
 const { calculateTotal, formatCurrency } = require('../utils/format');
 const { generatePixQr } = require('../utils/pix');
 const { recommendProducts } = require('../utils/ai');
+const { getCouponByCode } = require('../database/models/coupons');
+const { applyCouponDiscount } = require('../utils/coupons');
 
 module.exports = {
   name: 'interactionCreate',
@@ -107,6 +120,25 @@ module.exports = {
         return interaction.update({ embeds: [view.embed], components: view.components });
       }
 
+      if (interaction.customId === 'cart-coupon') {
+        const modal = new ModalBuilder().setCustomId('cart-coupon-modal').setTitle('Aplicar cupom');
+        const input = new TextInputBuilder()
+          .setCustomId('coupon-code')
+          .setLabel('Código do cupom')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        return interaction.showModal(modal);
+      }
+
+      if (interaction.customId === 'cart-coupon-clear') {
+        const bot = getBotContext();
+        const cart = getOrCreateCart(interaction.user.id, bot.id);
+        clearCartCoupon(cart.id);
+        const view = buildCartView(cart.id);
+        return interaction.update({ embeds: [view.embed], components: view.components });
+      }
+
       if (interaction.customId === 'cart-checkout') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const bot = getBotContext();
@@ -117,11 +149,13 @@ module.exports = {
         }
 
         const total = calculateTotal(items);
-        const order = createOrder(interaction.user.id, items, total, 'PENDENTE', bot.id);
+        const coupon = cart.coupon_code ? getCouponByCode(cart.coupon_code) : null;
+        const discountData = applyCouponDiscount(total, coupon);
+        const order = createOrder(interaction.user.id, items, discountData.total, 'PENDENTE', bot.id);
         closeCart(cart.id);
         items.forEach((item) => decrementStock(item.product_id, item.quantity));
         upsertCustomer(interaction.user.id, interaction.user.username, bot.id);
-        addXp(interaction.user.id, Math.round(total), bot.id);
+        addXp(interaction.user.id, Math.round(discountData.total), bot.id);
         items.forEach((item) => {
           createSale({
             bot_id: bot.id,
@@ -150,11 +184,13 @@ module.exports = {
           ]
         });
 
-        const { buffer, payload } = await generatePixQr({ amount: total, txid: `VIA${order.id}` });
+        const { buffer, payload } = await generatePixQr({ amount: discountData.total, txid: `VIA${order.id}` });
         const attachment = new AttachmentBuilder(buffer, { name: `pix-${order.id}.png` });
+        const couponLine = coupon ? `\nCupom: **${coupon.code}**` : '';
+        const discountLine = coupon && discountData.discount ? `\nDesconto: ${formatCurrency(discountData.discount)}` : '';
         const embed = buildPremiumEmbed({
           title: 'Pagamento PIX',
-          description: `Valor: ${formatCurrency(total)}\nStatus: **PENDENTE**\nCopie o payload abaixo ou use o QR Code.`,
+          description: `Valor: ${formatCurrency(discountData.total)}${discountLine}${couponLine}\nStatus: **PENDENTE**\nCopie o payload abaixo ou use o QR Code.`,
           fields: [{ name: 'Payload', value: payload ? `\`${payload}\`` : 'Payload indisponível, use o QR Code.' }]
         });
         embed.setImage(`attachment://pix-${order.id}.png`);
@@ -229,6 +265,28 @@ module.exports = {
         clearReceipt(orderId);
       }
 
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'cart-coupon-modal') {
+      const code = interaction.fields.getTextInputValue('coupon-code').trim();
+      if (!code) {
+        return interaction.reply({ content: 'Informe um código de cupom válido.', flags: MessageFlags.Ephemeral });
+      }
+      const coupon = getCouponByCode(code);
+      if (!coupon) {
+        return interaction.reply({ content: 'Cupom não encontrado ou inativo.', flags: MessageFlags.Ephemeral });
+      }
+
+      const bot = getBotContext();
+      const cart = getOrCreateCart(interaction.user.id, bot.id);
+      const customer = getCustomer(interaction.user.id, bot.id);
+      if (coupon.min_level && (customer?.level || 1) < coupon.min_level) {
+        return interaction.reply({ content: `Cupom exige nível mínimo ${coupon.min_level}.`, flags: MessageFlags.Ephemeral });
+      }
+
+      setCartCoupon(cart.id, coupon.code);
+      const view = buildCartView(cart.id);
+      return interaction.reply({ embeds: [view.embed], components: view.components, flags: MessageFlags.Ephemeral });
     }
   }
 };
