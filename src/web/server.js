@@ -88,6 +88,7 @@ app.get('/bots', authRequired, (req, res) => {
 app.post('/bots', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
   upsertBotByToken({
     owner_id: String(req.user.userId),
+    discord_bot_id: req.body.discord_bot_id || '',
     bot_name: req.body.bot_name,
     bot_token: req.body.bot_token,
     status: req.body.bot_token === config.discord.token ? 'online' : 'configurado',

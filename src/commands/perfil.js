@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { upsertCustomer } = require('../database/models/customers');
+const { getBotContext } = require('../database/models/bots');
 const { buildPremiumEmbed } = require('../utils/embeds');
 
 module.exports = {
@@ -7,7 +8,8 @@ module.exports = {
     .setName('perfil')
     .setDescription('Veja seu perfil de comprador'),
   async execute(interaction) {
-    const customer = upsertCustomer(interaction.user.id, interaction.user.username);
+    const bot = getBotContext();
+    const customer = upsertCustomer(interaction.user.id, interaction.user.username, bot.id);
     const embed = buildPremiumEmbed({
       title: 'Perfil do Cliente',
       description: `Bem-vindo, ${customer.name}!`,

@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { listCoupons } = require('../database/models/coupons');
-const { getOrCreateDefaultBot } = require('../database/models/bots');
+const { getBotContext } = require('../database/models/bots');
 const { buildPremiumEmbed } = require('../utils/embeds');
 
 module.exports = {
@@ -8,7 +8,7 @@ module.exports = {
     .setName('cupons')
     .setDescription('Veja cupons disponíveis'),
   async execute(interaction) {
-    const bot = getOrCreateDefaultBot();
+    const bot = getBotContext();
     const coupons = listCoupons(bot.id);
     const fields = coupons.map((coupon) => ({
       name: `${coupon.code} (${coupon.type})`,

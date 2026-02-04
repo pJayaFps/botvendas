@@ -1,16 +1,20 @@
 const { db } = require('../index');
 
-const getOrCreateCart = (userId) => {
-  const existing = db.prepare('SELECT * FROM carts WHERE user_id = ? AND status = ? ORDER BY id DESC').get(userId, 'open');
+const getOrCreateCart = (userId, botId = 1) => {
+  const existing = db
+    .prepare('SELECT * FROM carts WHERE user_id = ? AND bot_id = ? AND status = ? ORDER BY id DESC')
+    .get(userId, botId, 'open');
   if (existing) return existing;
   const createdAt = new Date().toISOString();
-  const result = db.prepare('INSERT INTO carts (user_id, status, created_at) VALUES (?, ?, ?)').run(userId, 'open', createdAt);
+  const result = db
+    .prepare('INSERT INTO carts (bot_id, user_id, status, created_at) VALUES (?, ?, ?, ?)')
+    .run(botId, userId, 'open', createdAt);
   if (result.lastInsertRowid) {
     return db.prepare('SELECT * FROM carts WHERE id = ?').get(result.lastInsertRowid);
   }
   return db
-    .prepare('SELECT * FROM carts WHERE user_id = ? AND status = ? ORDER BY id DESC')
-    .get(userId, 'open');
+    .prepare('SELECT * FROM carts WHERE user_id = ? AND bot_id = ? AND status = ? ORDER BY id DESC')
+    .get(userId, botId, 'open');
 };
 
 const listCartItems = (cartId) => {
@@ -22,12 +26,14 @@ const listCartItems = (cartId) => {
   `).all(cartId);
 };
 
-const addItem = (cartId, productId, quantity = 1) => {
+const addItem = (cartId, productId, quantity = 1, botId = 1) => {
   const existing = db.prepare('SELECT * FROM cart_items WHERE cart_id = ? AND product_id = ?').get(cartId, productId);
   if (existing) {
     return db.prepare('UPDATE cart_items SET quantity = quantity + ? WHERE id = ?').run(quantity, existing.id);
   }
-  return db.prepare('INSERT INTO cart_items (cart_id, product_id, quantity) VALUES (?, ?, ?)').run(cartId, productId, quantity);
+  return db
+    .prepare('INSERT INTO cart_items (bot_id, cart_id, product_id, quantity) VALUES (?, ?, ?, ?)')
+    .run(botId, cartId, productId, quantity);
 };
 
 const updateItemQuantity = (itemId, quantity) => {

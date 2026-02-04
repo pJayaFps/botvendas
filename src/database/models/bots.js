@@ -9,8 +9,8 @@ const listBotsByOwner = (ownerId) => db.prepare('SELECT * FROM bots WHERE owner_
 
 const createBot = (data) => {
   const stmt = db.prepare(`
-    INSERT INTO bots (owner_id, bot_name, bot_token, status, created_at)
-    VALUES (@owner_id, @bot_name, @bot_token, @status, @created_at)
+    INSERT INTO bots (owner_id, discord_bot_id, bot_name, bot_token, status, created_at)
+    VALUES (@owner_id, @discord_bot_id, @bot_name, @bot_token, @status, @created_at)
   `);
   const result = stmt.run(data);
   if (result.lastInsertRowid) return result.lastInsertRowid;
@@ -22,8 +22,8 @@ const upsertBotByToken = (data) => {
   const existing = getBotByToken(data.bot_token);
   if (existing) {
     db.prepare(
-      'UPDATE bots SET owner_id = ?, bot_name = ?, status = ? WHERE id = ?'
-    ).run(String(data.owner_id), data.bot_name, data.status, existing.id);
+      'UPDATE bots SET owner_id = ?, discord_bot_id = ?, bot_name = ?, status = ? WHERE id = ?'
+    ).run(String(data.owner_id), data.discord_bot_id, data.bot_name, data.status, existing.id);
     return existing.id;
   }
   return createBot(data);
@@ -36,6 +36,7 @@ const getOrCreateDefaultBot = () => {
   const createdAt = new Date().toISOString();
   const id = createBot({
     owner_id: 'system',
+    discord_bot_id: config.discord.clientId || '',
     bot_name: 'VIA BOT',
     bot_token: token,
     status: 'online',
@@ -44,4 +45,12 @@ const getOrCreateDefaultBot = () => {
   return getBotById(id);
 };
 
-module.exports = { getBotById, listBotsByOwner, createBot, upsertBotByToken, getOrCreateDefaultBot };
+const getBotContext = () => {
+  if (config.discord.botId) {
+    const bot = getBotById(config.discord.botId);
+    if (bot) return bot;
+  }
+  return getOrCreateDefaultBot();
+};
+
+module.exports = { getBotById, listBotsByOwner, createBot, upsertBotByToken, getOrCreateDefaultBot, getBotContext };

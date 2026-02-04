@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { listProducts } = require('../database/models/products');
-const { getOrCreateDefaultBot } = require('../database/models/bots');
+const { getBotContext } = require('../database/models/bots');
 const { buildPremiumEmbed } = require('../utils/embeds');
 const { formatCurrency } = require('../utils/format');
 
@@ -9,7 +9,7 @@ module.exports = {
     .setName('ofertas')
     .setDescription('Veja ofertas premium'),
   async execute(interaction) {
-    const bot = getOrCreateDefaultBot();
+    const bot = getBotContext();
     const products = listProducts(bot.id).slice(0, 3);
     const fields = products.map((product) => ({
       name: `${product.name} • ${formatCurrency(product.price)}`,

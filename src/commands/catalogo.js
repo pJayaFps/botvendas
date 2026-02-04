@@ -7,8 +7,8 @@ module.exports = {
     .setDescription('Abra o catálogo premium (privado)')
     .setDMPermission(false),
   async execute(interaction) {
-    const { getOrCreateDefaultBot } = require('../database/models/bots');
-    const bot = getOrCreateDefaultBot();
+    const { getBotContext } = require('../database/models/bots');
+    const bot = getBotContext();
     const view = buildCatalogView({ botId: bot.id });
     await interaction.reply({ embeds: [view.embed], components: view.components, flags: MessageFlags.Ephemeral });
   }

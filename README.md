@@ -14,6 +14,7 @@ DISCORD_TOKEN=seu_token
 DISCORD_CLIENT_ID=seu_client_id
 DISCORD_GUILD_ID=opcional_para_comandos_guild
 DISCORD_ADMIN_ID=seu_user_id_admin
+DISCORD_BOT_ID=1
 DB_PATH=./data/via-bot.sqlite
 WEB_PORT=3000
 WEB_BASE_URL=http://localhost:3000

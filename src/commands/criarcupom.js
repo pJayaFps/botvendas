@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { createCoupon } = require('../database/models/coupons');
-const { getOrCreateDefaultBot } = require('../database/models/bots');
+const { getBotContext } = require('../database/models/bots');
 const { buildPremiumEmbed } = require('../utils/embeds');
 const { isAdmin } = require('../utils/permissions');
 
@@ -27,7 +27,7 @@ module.exports = {
       return interaction.reply({ content: 'Apenas administradores podem usar este comando.', flags: MessageFlags.Ephemeral });
     }
 
-    const bot = getOrCreateDefaultBot();
+    const bot = getBotContext();
     const data = {
       bot_id: bot.id,
       code: interaction.options.getString('codigo'),

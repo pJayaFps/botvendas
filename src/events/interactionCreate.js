@@ -3,7 +3,7 @@ const { getOrCreateCart, addItem, listCartItems, updateItemQuantity, clearCart, 
 const { getProduct, decrementStock, listProducts } = require('../database/models/products');
 const { createOrder, updateOrderStatus } = require('../database/models/orders');
 const { upsertCustomer, addXp } = require('../database/models/customers');
-const { getOrCreateDefaultBot } = require('../database/models/bots');
+const { getBotContext } = require('../database/models/bots');
 const { createSale, updateSaleStatusByOrder } = require('../database/models/sales');
 const { buildCatalogView, parseCatalogState } = require('../utils/catalog');
 const { buildCartView } = require('../utils/cartView');
@@ -33,20 +33,20 @@ module.exports = {
 
     if (interaction.isStringSelectMenu() && interaction.customId === 'catalog-category') {
       const category = interaction.values[0];
-      const bot = getOrCreateDefaultBot();
+      const bot = getBotContext();
       const view = buildCatalogView({ botId: bot.id, category });
       return interaction.update({ embeds: [view.embed], components: view.components });
     }
 
     if (interaction.isButton()) {
       if (interaction.customId === 'panel-open-catalog') {
-        const bot = getOrCreateDefaultBot();
+        const bot = getBotContext();
         const view = buildCatalogView({ botId: bot.id });
         return interaction.reply({ embeds: [view.embed], components: view.components, flags: MessageFlags.Ephemeral });
       }
 
       if (interaction.customId === 'panel-open-offers') {
-        const bot = getOrCreateDefaultBot();
+        const bot = getBotContext();
         const products = listProducts(bot.id).slice(0, 3);
         const fields = products.map((product) => ({
           name: `${product.name} • ${formatCurrency(product.price)}`,
@@ -68,8 +68,9 @@ module.exports = {
         if (!product) {
           return interaction.reply({ content: 'Produto não encontrado.', flags: MessageFlags.Ephemeral });
         }
-        const cart = getOrCreateCart(interaction.user.id);
-        addItem(cart.id, productId, 1);
+        const bot = getBotContext();
+        const cart = getOrCreateCart(interaction.user.id, bot.id);
+        addItem(cart.id, productId, 1, bot.id);
         const view = buildCartView(cart.id);
         return interaction.reply({ embeds: [view.embed], components: view.components, flags: MessageFlags.Ephemeral });
       }
@@ -82,7 +83,8 @@ module.exports = {
       }
 
       if (interaction.customId === 'cart-clear') {
-        const cart = getOrCreateCart(interaction.user.id);
+        const bot = getBotContext();
+        const cart = getOrCreateCart(interaction.user.id, bot.id);
         clearCart(cart.id);
         const view = buildCartView(cart.id);
         return interaction.update({ embeds: [view.embed], components: view.components });
@@ -91,7 +93,8 @@ module.exports = {
       if (interaction.customId.startsWith('cart-increase-') || interaction.customId.startsWith('cart-decrease-') || interaction.customId.startsWith('cart-remove-')) {
         const action = interaction.customId.split('-')[1];
         const itemId = Number(interaction.customId.split('-').pop());
-        const cart = getOrCreateCart(interaction.user.id);
+        const bot = getBotContext();
+        const cart = getOrCreateCart(interaction.user.id, bot.id);
         const items = listCartItems(cart.id);
         const target = items.find((item) => item.cart_item_id === itemId);
         if (!target) {
@@ -106,19 +109,19 @@ module.exports = {
 
       if (interaction.customId === 'cart-checkout') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const cart = getOrCreateCart(interaction.user.id);
+        const bot = getBotContext();
+        const cart = getOrCreateCart(interaction.user.id, bot.id);
         const items = listCartItems(cart.id);
         if (!items.length) {
           return interaction.editReply({ content: 'Seu carrinho está vazio.' });
         }
 
         const total = calculateTotal(items);
-        const bot = getOrCreateDefaultBot();
         const order = createOrder(interaction.user.id, items, total, 'PENDENTE', bot.id);
         closeCart(cart.id);
         items.forEach((item) => decrementStock(item.product_id, item.quantity));
-        upsertCustomer(interaction.user.id, interaction.user.username);
-        addXp(interaction.user.id, Math.round(total));
+        upsertCustomer(interaction.user.id, interaction.user.username, bot.id);
+        addXp(interaction.user.id, Math.round(total), bot.id);
         items.forEach((item) => {
           createSale({
             bot_id: bot.id,
@@ -189,7 +192,7 @@ module.exports = {
           return interaction.reply({ content: 'Apenas o administrador pode aprovar.', flags: MessageFlags.Ephemeral });
         }
         updateOrderStatus(orderId, 'APROVADO');
-        const bot = getOrCreateDefaultBot();
+        const bot = getBotContext();
         updateSaleStatusByOrder(bot.id, receipt.userId, 'paga');
         const approvedEmbed = buildPremiumEmbed({
           title: 'Pagamento Aprovado',

@@ -106,12 +106,14 @@ const init = async () => {
     );
     CREATE TABLE IF NOT EXISTS carts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bot_id INTEGER DEFAULT 1,
       user_id TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'open',
       created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS cart_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bot_id INTEGER DEFAULT 1,
       cart_id INTEGER NOT NULL,
       product_id INTEGER NOT NULL,
       quantity INTEGER NOT NULL,
@@ -136,6 +138,7 @@ const init = async () => {
     );
     CREATE TABLE IF NOT EXISTS customers (
       user_id TEXT PRIMARY KEY,
+      bot_id INTEGER DEFAULT 1,
       name TEXT NOT NULL,
       xp INTEGER NOT NULL DEFAULT 0,
       level INTEGER NOT NULL DEFAULT 1,
@@ -162,6 +165,7 @@ const init = async () => {
     CREATE TABLE IF NOT EXISTS bots (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       owner_id TEXT NOT NULL,
+      discord_bot_id TEXT,
       bot_name TEXT NOT NULL,
       bot_token TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'offline',
@@ -181,6 +185,10 @@ const init = async () => {
   addColumnIfMissing('products', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('orders', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('coupons', 'bot_id', 'INTEGER DEFAULT 1');
+  addColumnIfMissing('carts', 'bot_id', 'INTEGER DEFAULT 1');
+  addColumnIfMissing('cart_items', 'bot_id', 'INTEGER DEFAULT 1');
+  addColumnIfMissing('customers', 'bot_id', 'INTEGER DEFAULT 1');
+  addColumnIfMissing('bots', 'discord_bot_id', 'TEXT');
   const token = config.discord.token || 'default-token';
   const existingBot = db.prepare('SELECT id FROM bots WHERE bot_token = ?').get(token);
   let defaultBotId = existingBot?.id;
@@ -194,6 +202,9 @@ const init = async () => {
   db.prepare('UPDATE products SET bot_id = ? WHERE bot_id IS NULL OR bot_id = 0').run(safeBotId);
   db.prepare('UPDATE orders SET bot_id = ? WHERE bot_id IS NULL OR bot_id = 0').run(safeBotId);
   db.prepare('UPDATE coupons SET bot_id = ? WHERE bot_id IS NULL OR bot_id = 0').run(safeBotId);
+  db.prepare('UPDATE carts SET bot_id = ? WHERE bot_id IS NULL OR bot_id = 0').run(safeBotId);
+  db.prepare('UPDATE cart_items SET bot_id = ? WHERE bot_id IS NULL OR bot_id = 0').run(safeBotId);
+  db.prepare('UPDATE customers SET bot_id = ? WHERE bot_id IS NULL OR bot_id = 0').run(safeBotId);
   initialized = true;
 };
 

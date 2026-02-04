@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { listOrders } = require('../database/models/orders');
+const { getBotContext } = require('../database/models/bots');
 const { buildPremiumEmbed } = require('../utils/embeds');
 const { formatCurrency } = require('../utils/format');
 const { isAdmin } = require('../utils/permissions');
@@ -13,7 +14,8 @@ module.exports = {
       return interaction.reply({ content: 'Apenas administradores podem usar este comando.', flags: MessageFlags.Ephemeral });
     }
 
-    const orders = listOrders('APROVADO').slice(0, 5);
+    const bot = getBotContext();
+    const orders = listOrders(bot.id, 'APROVADO').slice(0, 5);
     const fields = orders.map((order) => ({
       name: `Pedido #${order.id} • ${order.status}`,
       value: `Cliente: ${order.user_id} | Total: ${formatCurrency(order.total)}`,

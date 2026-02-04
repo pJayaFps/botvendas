@@ -12,11 +12,11 @@ const createOrder = (userId, items, total, status = 'PENDENTE', botId = 1) => {
   return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 };
 
-const listOrders = (status) => {
+const listOrders = (botId, status) => {
   if (status) {
-    return db.prepare('SELECT * FROM orders WHERE status = ? ORDER BY id DESC').all(status);
+    return db.prepare('SELECT * FROM orders WHERE bot_id = ? AND status = ? ORDER BY id DESC').all(botId, status);
   }
-  return db.prepare('SELECT * FROM orders ORDER BY id DESC').all();
+  return db.prepare('SELECT * FROM orders WHERE bot_id = ? ORDER BY id DESC').all(botId);
 };
 
 const listOrderItems = (orderId) => {
