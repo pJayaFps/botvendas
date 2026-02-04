@@ -7,7 +7,7 @@ const config = require('../config');
 const { db, init } = require('../database');
 const { countUsers, getUserByEmail, createUser, getUserById } = require('../database/models/users');
 const { listBotsByOwner, upsertBotByToken, getBotById } = require('../database/models/bots');
-const { listSalesByBot, listSalesByBotStatus } = require('../database/models/sales');
+const { listSalesByBotStatus } = require('../database/models/sales');
 const { listProducts, createProduct } = require('../database/models/products');
 const { listCoupons } = require('../database/models/coupons');
 
@@ -102,7 +102,7 @@ app.get('/dashboard/:botId', authRequired, (req, res) => {
   if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
     return res.status(404).send('Bot não encontrado.');
   }
-  const sales = listSalesByBot(bot.id);
+  const sales = listSalesByBotStatus(bot.id, 'paga');
   const pending = listSalesByBotStatus(bot.id, 'pendente');
   const revenue = sales.reduce((sum, sale) => sum + sale.valor, 0);
   const products = listProducts(bot.id).slice(0, 5);
