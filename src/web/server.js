@@ -8,7 +8,7 @@ const { db, init } = require('../database');
 const { countUsers, getUserByEmail, createUser, getUserById } = require('../database/models/users');
 const { listBotsByOwner, upsertBotByToken, getBotById } = require('../database/models/bots');
 const { listSalesByBot, listSalesByBotStatus } = require('../database/models/sales');
-const { listProducts } = require('../database/models/products');
+const { listProducts, createProduct } = require('../database/models/products');
 const { listCoupons } = require('../database/models/coupons');
 
 const app = express();
@@ -124,18 +124,15 @@ app.post('/bots/:botId/products', authRequired, roleRequired(['owner', 'admin'])
   if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
     return res.status(404).send('Bot não encontrado.');
   }
-  db.prepare(`
-    INSERT INTO products (bot_id, name, description, price, image_url, category, stock, active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-  `).run(
-    bot.id,
-    req.body.name,
-    req.body.description,
-    Number(req.body.price),
-    req.body.image_url,
-    req.body.category,
-    Number(req.body.stock || 0)
-  );
+  createProduct({
+    bot_id: bot.id,
+    name: req.body.name,
+    description: req.body.description,
+    price: Number(req.body.price),
+    image_url: req.body.image_url,
+    category: req.body.category,
+    stock: Number(req.body.stock || 0)
+  });
   return res.redirect(`/bots/${bot.id}/products`);
 });
 
