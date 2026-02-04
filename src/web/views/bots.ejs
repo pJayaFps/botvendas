@@ -22,7 +22,7 @@
       <% bots.forEach((bot) => { %>
         <div class="bg-slate-900 border border-blue-500 rounded-xl p-6">
           <h3 class="text-xl font-semibold"><%= bot.bot_name %></h3>
-          <p class="text-sm text-blue-300">Status: <%= bot.status %></p>
+          <p class="text-sm text-blue-300">Status: <%= bot.status === 'offline' ? 'configurado' : bot.status %></p>
           <a href="/dashboard/<%= bot.id %>" class="inline-block mt-4 bg-blue-600 px-4 py-2 rounded">Abrir Dashboard</a>
         </div>
       <% }) %>

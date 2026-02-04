@@ -181,6 +181,9 @@ const init = async () => {
   addColumnIfMissing('products', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('orders', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('coupons', 'bot_id', 'INTEGER DEFAULT 1');
+  db.prepare('UPDATE products SET bot_id = 1 WHERE bot_id IS NULL OR bot_id = 0').run();
+  db.prepare('UPDATE orders SET bot_id = 1 WHERE bot_id IS NULL OR bot_id = 0').run();
+  db.prepare('UPDATE coupons SET bot_id = 1 WHERE bot_id IS NULL OR bot_id = 0').run();
   initialized = true;
 };
 

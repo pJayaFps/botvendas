@@ -84,10 +84,10 @@ app.get('/bots', authRequired, (req, res) => {
 
 app.post('/bots', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
   createBot({
-    owner_id: req.user.userId,
+    owner_id: String(req.user.userId),
     bot_name: req.body.bot_name,
     bot_token: req.body.bot_token,
-    status: 'offline',
+    status: 'configurado',
     created_at: new Date().toISOString()
   });
   return res.redirect('/bots');
@@ -95,7 +95,7 @@ app.post('/bots', authRequired, roleRequired(['owner', 'admin']), (req, res) => 
 
 app.get('/dashboard/:botId', authRequired, (req, res) => {
   const bot = getBotById(req.params.botId);
-  if (!bot || bot.owner_id !== String(req.user.userId)) {
+  if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
     return res.status(404).send('Bot não encontrado.');
   }
   const sales = listSalesByBot(bot.id);
@@ -108,7 +108,7 @@ app.get('/dashboard/:botId', authRequired, (req, res) => {
 
 app.get('/bots/:botId/products', authRequired, (req, res) => {
   const bot = getBotById(req.params.botId);
-  if (!bot || bot.owner_id !== String(req.user.userId)) {
+  if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
     return res.status(404).send('Bot não encontrado.');
   }
   const products = listProducts(bot.id);
@@ -117,7 +117,7 @@ app.get('/bots/:botId/products', authRequired, (req, res) => {
 
 app.post('/bots/:botId/products', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
   const bot = getBotById(req.params.botId);
-  if (!bot || bot.owner_id !== String(req.user.userId)) {
+  if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
     return res.status(404).send('Bot não encontrado.');
   }
   db.prepare(`
@@ -137,7 +137,7 @@ app.post('/bots/:botId/products', authRequired, roleRequired(['owner', 'admin'])
 
 app.post('/bots/:botId/products/:productId/delete', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
   const bot = getBotById(req.params.botId);
-  if (!bot || bot.owner_id !== String(req.user.userId)) {
+  if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
     return res.status(404).send('Bot não encontrado.');
   }
   db.prepare('UPDATE products SET active = 0 WHERE id = ? AND bot_id = ?').run(req.params.productId, bot.id);
