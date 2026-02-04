@@ -181,9 +181,19 @@ const init = async () => {
   addColumnIfMissing('products', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('orders', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('coupons', 'bot_id', 'INTEGER DEFAULT 1');
-  db.prepare('UPDATE products SET bot_id = 1 WHERE bot_id IS NULL OR bot_id = 0').run();
-  db.prepare('UPDATE orders SET bot_id = 1 WHERE bot_id IS NULL OR bot_id = 0').run();
-  db.prepare('UPDATE coupons SET bot_id = 1 WHERE bot_id IS NULL OR bot_id = 0').run();
+  const token = config.discord.token || 'default-token';
+  const existingBot = db.prepare('SELECT id FROM bots WHERE bot_token = ?').get(token);
+  let defaultBotId = existingBot?.id;
+  if (!defaultBotId) {
+    db.prepare(
+      'INSERT INTO bots (owner_id, bot_name, bot_token, status, created_at) VALUES (?, ?, ?, ?, ?)'
+    ).run('system', 'VIA BOT', token, 'online', new Date().toISOString());
+    defaultBotId = db.prepare('SELECT id FROM bots WHERE bot_token = ?').get(token)?.id;
+  }
+  const safeBotId = defaultBotId || 1;
+  db.prepare('UPDATE products SET bot_id = ? WHERE bot_id IS NULL OR bot_id = 0').run(safeBotId);
+  db.prepare('UPDATE orders SET bot_id = ? WHERE bot_id IS NULL OR bot_id = 0').run(safeBotId);
+  db.prepare('UPDATE coupons SET bot_id = ? WHERE bot_id IS NULL OR bot_id = 0').run(safeBotId);
   initialized = true;
 };
 

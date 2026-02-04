@@ -18,6 +18,17 @@ const createBot = (data) => {
   return fallback?.id;
 };
 
+const upsertBotByToken = (data) => {
+  const existing = getBotByToken(data.bot_token);
+  if (existing) {
+    db.prepare(
+      'UPDATE bots SET owner_id = ?, bot_name = ?, status = ? WHERE id = ?'
+    ).run(String(data.owner_id), data.bot_name, data.status, existing.id);
+    return existing.id;
+  }
+  return createBot(data);
+};
+
 const getOrCreateDefaultBot = () => {
   const token = config.discord.token || 'default-token';
   const existing = getBotByToken(token);
@@ -33,4 +44,4 @@ const getOrCreateDefaultBot = () => {
   return getBotById(id);
 };
 
-module.exports = { getBotById, listBotsByOwner, createBot, getOrCreateDefaultBot };
+module.exports = { getBotById, listBotsByOwner, createBot, upsertBotByToken, getOrCreateDefaultBot };

@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { db, init } = require('../database');
 const { countUsers, getUserByEmail, createUser, getUserById } = require('../database/models/users');
-const { listBotsByOwner, createBot, getBotById } = require('../database/models/bots');
+const { listBotsByOwner, upsertBotByToken, getBotById } = require('../database/models/bots');
 const { listSalesByBot, listSalesByBotStatus } = require('../database/models/sales');
 const { listProducts } = require('../database/models/products');
 const { listCoupons } = require('../database/models/coupons');
@@ -78,16 +78,19 @@ app.post('/logout', (req, res) => {
 });
 
 app.get('/bots', authRequired, (req, res) => {
-  const bots = listBotsByOwner(req.user.userId);
+  const bots = listBotsByOwner(req.user.userId).map((bot) => ({
+    ...bot,
+    status: bot.bot_token === config.discord.token ? 'online' : bot.status
+  }));
   res.render('bots', { bots });
 });
 
 app.post('/bots', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
-  createBot({
+  upsertBotByToken({
     owner_id: String(req.user.userId),
     bot_name: req.body.bot_name,
     bot_token: req.body.bot_token,
-    status: 'configurado',
+    status: req.body.bot_token === config.discord.token ? 'online' : 'configurado',
     created_at: new Date().toISOString()
   });
   return res.redirect('/bots');
