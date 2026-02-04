@@ -182,7 +182,7 @@ module.exports = {
         clearReceipt(orderId);
         setTimeout(async () => {
           await channel.delete('Checkout finalizado');
-        }, 5000);
+        }, 20000);
       }
 
       if (interaction.customId.startsWith('receipt-reject-')) {
