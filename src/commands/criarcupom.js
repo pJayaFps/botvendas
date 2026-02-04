@@ -21,7 +21,10 @@ module.exports = {
         )
     )
     .addNumberOption((option) => option.setName('valor').setDescription('Valor do desconto').setRequired(true))
-    .addIntegerOption((option) => option.setName('nivelmin').setDescription('Nível mínimo').setRequired(false)),
+    .addIntegerOption((option) => option.setName('nivelmin').setDescription('Nível mínimo').setRequired(false))
+    .addIntegerOption((option) =>
+      option.setName('limite').setDescription('Quantidade máxima de usos').setRequired(false)
+    ),
   async execute(interaction) {
     if (!isAdmin(interaction.member)) {
       return interaction.reply({ content: 'Apenas administradores podem usar este comando.', flags: MessageFlags.Ephemeral });
@@ -33,7 +36,8 @@ module.exports = {
       code: interaction.options.getString('codigo'),
       type: interaction.options.getString('tipo'),
       value: interaction.options.getNumber('valor'),
-      min_level: interaction.options.getInteger('nivelmin') || 1
+      min_level: interaction.options.getInteger('nivelmin') || 1,
+      max_uses: interaction.options.getInteger('limite') || null
     };
 
     createCoupon(data);

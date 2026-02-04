@@ -22,7 +22,7 @@ const { buildPremiumEmbed } = require('../utils/embeds');
 const { calculateTotal, formatCurrency } = require('../utils/format');
 const { generatePixQr } = require('../utils/pix');
 const { recommendProducts } = require('../utils/ai');
-const { getCouponByCode } = require('../database/models/coupons');
+const { getCouponByCode, incrementCouponUsage } = require('../database/models/coupons');
 const { applyCouponDiscount } = require('../utils/coupons');
 
 module.exports = {
@@ -156,17 +156,21 @@ module.exports = {
         items.forEach((item) => decrementStock(item.product_id, item.quantity));
         upsertCustomer(interaction.user.id, interaction.user.username, bot.id);
         addXp(interaction.user.id, Math.round(discountData.total), bot.id);
+        const discountRatio = total > 0 ? discountData.total / total : 1;
         items.forEach((item) => {
           createSale({
             bot_id: bot.id,
             user_discord: interaction.user.id,
-            valor: item.price * item.quantity,
+            valor: item.price * item.quantity * discountRatio,
             produto: item.name,
             quantidade: item.quantity,
             status: 'pendente',
             data: new Date().toISOString()
           });
         });
+        if (coupon) {
+          incrementCouponUsage(coupon.id);
+        }
 
         if (!interaction.guild) {
           return interaction.editReply({ content: 'Este checkout precisa ser feito dentro de um servidor.' });
@@ -275,6 +279,9 @@ module.exports = {
       const coupon = getCouponByCode(code);
       if (!coupon) {
         return interaction.reply({ content: 'Cupom não encontrado ou inativo.', flags: MessageFlags.Ephemeral });
+      }
+      if (coupon.max_uses && coupon.used_count >= coupon.max_uses) {
+        return interaction.reply({ content: 'Este cupom já atingiu o limite de usos.', flags: MessageFlags.Ephemeral });
       }
 
       const bot = getBotContext();

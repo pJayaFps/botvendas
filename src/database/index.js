@@ -152,6 +152,8 @@ const init = async () => {
       type TEXT NOT NULL,
       value REAL NOT NULL,
       min_level INTEGER DEFAULT 1,
+      max_uses INTEGER DEFAULT NULL,
+      used_count INTEGER NOT NULL DEFAULT 0,
       active INTEGER NOT NULL DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS users (
@@ -185,6 +187,8 @@ const init = async () => {
   addColumnIfMissing('products', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('orders', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('coupons', 'bot_id', 'INTEGER DEFAULT 1');
+  addColumnIfMissing('coupons', 'max_uses', 'INTEGER DEFAULT NULL');
+  addColumnIfMissing('coupons', 'used_count', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfMissing('carts', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('carts', 'coupon_code', 'TEXT');
   addColumnIfMissing('cart_items', 'bot_id', 'INTEGER DEFAULT 1');
