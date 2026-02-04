@@ -19,7 +19,7 @@ module.exports = {
     const orderId = extractOrderId(message.channel.topic);
     if (!orderId) return;
 
-    const adminId = config.discord.adminId;
+    const adminId = config.discord.adminId || message.guild.ownerId;
     if (!adminId) return;
 
     saveReceipt(orderId, {
@@ -49,6 +49,11 @@ module.exports = {
       await admin.send({ embeds: [embed], components: [row], files: [...message.attachments.values()] });
     } catch (error) {
       console.error('[COMPROVANTE] Não foi possível enviar DM ao admin', error);
+      await message.channel.send({
+        content: `<@${adminId}> não consegui enviar DM. Use os botões abaixo para aprovar/reprovar.`,
+        embeds: [embed],
+        components: [row]
+      });
     }
   }
 };
