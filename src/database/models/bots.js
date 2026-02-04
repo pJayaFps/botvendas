@@ -1,5 +1,5 @@
 const { db } = require('../index');
-const config = require('../config');
+const config = require('../../config');
 
 const getBotById = (id) => db.prepare('SELECT * FROM bots WHERE id = ?').get(id);
 
