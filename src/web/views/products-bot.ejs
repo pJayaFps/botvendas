@@ -7,8 +7,17 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-white">
-  <header class="bg-gradient-to-r from-violet-700 to-blue-500 p-6 shadow-2xl">
-    <h1 class="text-3xl font-bold">Produtos • <%= bot.bot_name %></h1>
+  <header class="bg-gradient-to-r from-violet-700 to-blue-500 p-6 shadow-2xl flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold">Produtos • <%= bot.bot_name %></h1>
+      <p class="text-sm opacity-80">Catálogo e estoque do bot</p>
+    </div>
+    <div class="flex gap-3">
+      <a href="/dashboard/<%= bot.id %>" class="bg-slate-900/60 border border-blue-300 px-4 py-2 rounded-lg">Voltar</a>
+      <form method="POST" action="/logout">
+        <button class="bg-slate-900/60 border border-blue-300 px-4 py-2 rounded-lg">Sair</button>
+      </form>
+    </div>
   </header>
   <main class="p-8 space-y-8">
     <form method="POST" action="/bots/<%= bot.id %>/products" class="bg-slate-900 p-6 rounded-xl border border-violet-600 space-y-4">
