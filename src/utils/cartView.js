@@ -21,6 +21,13 @@ const buildCartView = (cartId) => {
   });
 
   embed.addFields({ name: 'Total', value: formatCurrency(total) });
+  if (items.length > 4) {
+    embed.addFields({
+      name: 'Gerenciamento',
+      value: 'Use os botões para ajustar ou remover os 4 primeiros itens listados.',
+      inline: false
+    });
+  }
 
   const rows = [];
   if (items.length) {
@@ -29,13 +36,17 @@ const buildCartView = (cartId) => {
       new ButtonBuilder().setCustomId('cart-checkout').setLabel('Finalizar').setStyle(ButtonStyle.Success)
     );
 
-    const manageRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`cart-decrease-${items[0].cart_item_id}`).setLabel('➖').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`cart-increase-${items[0].cart_item_id}`).setLabel('➕').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`cart-remove-${items[0].cart_item_id}`).setLabel('Remover').setStyle(ButtonStyle.Secondary)
-    );
+    const manageableItems = items.slice(0, 4);
+    manageableItems.forEach((item) => {
+      const manageRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`cart-decrease-${item.cart_item_id}`).setLabel('➖').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`cart-increase-${item.cart_item_id}`).setLabel('➕').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`cart-remove-${item.cart_item_id}`).setLabel('Remover').setStyle(ButtonStyle.Secondary)
+      );
+      rows.push(manageRow);
+    });
 
-    rows.push(manageRow, controlRow);
+    rows.push(controlRow);
   }
 
   return { embed, components: rows, total, items };
