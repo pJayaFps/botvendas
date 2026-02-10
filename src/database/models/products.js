@@ -13,6 +13,8 @@ const listProducts = (botId = 1, category) => {
 
 const getProduct = (id) => db.prepare('SELECT * FROM products WHERE id = ?').get(id);
 
+const getProductByBot = (id, botId = 1) => db.prepare('SELECT * FROM products WHERE id = ? AND bot_id = ?').get(id, botId);
+
 const createProduct = (data) => {
   const category = data.category?.trim();
   const stmt = db.prepare(`
@@ -56,6 +58,7 @@ const decrementStock = (id, quantity) => {
 module.exports = {
   listProducts,
   getProduct,
+  getProductByBot,
   createProduct,
   updateProduct,
   deleteProduct,

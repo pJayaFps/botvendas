@@ -8,7 +8,7 @@ const { db, init } = require('../database');
 const { countUsers, getUserByEmail, createUser, getUserById } = require('../database/models/users');
 const { listBotsByOwner, upsertBotByToken, getBotById } = require('../database/models/bots');
 const { listSalesByBotStatus } = require('../database/models/sales');
-const { listProducts, createProduct, deleteProduct } = require('../database/models/products');
+const { listProducts, createProduct, deleteProduct, getProductByBot, updateProduct } = require('../database/models/products');
 const { listCoupons } = require('../database/models/coupons');
 
 const app = express();
@@ -117,6 +117,41 @@ app.get('/bots/:botId/products', authRequired, (req, res) => {
   }
   const products = listProducts(bot.id);
   res.render('products-bot', { bot, products });
+});
+
+app.get('/bots/:botId/products/:productId/edit', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
+  const bot = getBotById(req.params.botId);
+  if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
+    return res.status(404).send('Bot não encontrado.');
+  }
+  const product = getProductByBot(req.params.productId, bot.id);
+  if (!product) {
+    return res.status(404).send('Produto não encontrado.');
+  }
+  return res.render('product-edit-bot', { bot, product });
+});
+
+app.post('/bots/:botId/products/:productId/edit', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
+  const bot = getBotById(req.params.botId);
+  if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
+    return res.status(404).send('Bot não encontrado.');
+  }
+  const product = getProductByBot(req.params.productId, bot.id);
+  if (!product) {
+    return res.status(404).send('Produto não encontrado.');
+  }
+
+  updateProduct(product.id, {
+    name: req.body.name || product.name,
+    description: req.body.description || product.description,
+    price: Number(req.body.price ?? product.price),
+    image_url: req.body.image_url || product.image_url,
+    category: req.body.category || product.category,
+    stock: Number(req.body.stock ?? product.stock),
+    active: req.body.active === 'on' ? 1 : 0
+  });
+
+  return res.redirect(`/bots/${bot.id}/products`);
 });
 
 app.post('/bots/:botId/products', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
