@@ -8,7 +8,7 @@ const { db, init } = require('../database');
 const { countUsers, getUserByEmail, createUser, getUserById } = require('../database/models/users');
 const { listBotsByOwner, upsertBotByToken, getBotById } = require('../database/models/bots');
 const { listSalesByBotStatus } = require('../database/models/sales');
-const { listProducts, createProduct, deleteProduct, getProductByBot, updateProduct } = require('../database/models/products');
+const { listProducts, listProductsForPanel, createProduct, deleteProduct, getProductByBot, updateProduct } = require('../database/models/products');
 const { listCoupons } = require('../database/models/coupons');
 
 const app = express();
@@ -115,7 +115,7 @@ app.get('/bots/:botId/products', authRequired, (req, res) => {
   if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
     return res.status(404).send('Bot não encontrado.');
   }
-  const products = listProducts(bot.id);
+  const products = listProductsForPanel(bot.id);
   res.render('products-bot', { bot, products });
 });
 
@@ -168,6 +168,30 @@ app.post('/bots/:botId/products', authRequired, roleRequired(['owner', 'admin'])
     category: req.body.category,
     stock: Number(req.body.stock || 0)
   });
+  return res.redirect(`/bots/${bot.id}/products`);
+});
+
+app.post('/bots/:botId/products/:productId/toggle-active', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
+  const bot = getBotById(req.params.botId);
+  if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
+    return res.status(404).send('Bot não encontrado.');
+  }
+
+  const product = getProductByBot(req.params.productId, bot.id);
+  if (!product) {
+    return res.status(404).send('Produto não encontrado.');
+  }
+
+  updateProduct(product.id, {
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    image_url: product.image_url,
+    category: product.category,
+    stock: product.stock,
+    active: Number(product.active) ? 0 : 1
+  });
+
   return res.redirect(`/bots/${bot.id}/products`);
 });
 

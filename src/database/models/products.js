@@ -13,6 +13,13 @@ const listProducts = (botId = 1, category) => {
 
 const getProduct = (id) => db.prepare('SELECT * FROM products WHERE id = ?').get(id);
 
+
+const listProductsForPanel = (botId = 1) => {
+  return db
+    .prepare('SELECT *, TRIM(category) AS category FROM products WHERE bot_id = ? ORDER BY id DESC')
+    .all(botId);
+};
+
 const getProductByBot = (id, botId = 1) => db.prepare('SELECT * FROM products WHERE id = ? AND bot_id = ?').get(id, botId);
 
 const createProduct = (data) => {
@@ -57,6 +64,7 @@ const decrementStock = (id, quantity) => {
 
 module.exports = {
   listProducts,
+  listProductsForPanel,
   getProduct,
   getProductByBot,
   createProduct,

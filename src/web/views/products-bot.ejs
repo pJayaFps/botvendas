@@ -38,6 +38,7 @@
           <th class="p-3">Categoria</th>
           <th class="p-3">Preço</th>
           <th class="p-3">Estoque</th>
+          <th class="p-3">Status</th>
           <th class="p-3">Ações</th>
         </tr>
       </thead>
@@ -49,8 +50,18 @@
             <td class="p-3 text-center">R$ <%= product.price.toFixed(2) %></td>
             <td class="p-3 text-center"><%= product.stock %></td>
             <td class="p-3 text-center">
-              <div class="flex items-center justify-center gap-2">
+              <% if (Number(product.active)) { %>
+                <span class="inline-flex px-2 py-1 rounded-full text-xs bg-emerald-700/40 border border-emerald-400">Produto ativo</span>
+              <% } else { %>
+                <span class="inline-flex px-2 py-1 rounded-full text-xs bg-amber-700/40 border border-amber-400">Produto inativo</span>
+              <% } %>
+            </td>
+            <td class="p-3 text-center">
+              <div class="flex items-center justify-center gap-2 flex-wrap">
                 <a href="/bots/<%= bot.id %>/products/<%= product.id %>/edit" class="bg-blue-600 px-3 py-1 rounded">Editar</a>
+                <form method="POST" action="/bots/<%= bot.id %>/products/<%= product.id %>/toggle-active">
+                  <button class="<%= Number(product.active) ? 'bg-amber-600' : 'bg-emerald-600' %> px-3 py-1 rounded"><%= Number(product.active) ? 'Desativar' : 'Ativar' %></button>
+                </form>
                 <form method="POST" action="/bots/<%= bot.id %>/products/<%= product.id %>/delete">
                   <button class="bg-red-600 px-3 py-1 rounded">Remover</button>
                 </form>
