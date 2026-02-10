@@ -41,8 +41,12 @@ const updateProduct = (id, data) => {
   return stmt.run({ ...data, category, id });
 };
 
-const deleteProduct = (id) => {
-  return db.prepare('UPDATE products SET active = 0 WHERE id = ?').run(id);
+const deleteProduct = (id, botId) => {
+  db.prepare('DELETE FROM cart_items WHERE product_id = ?').run(id);
+  if (botId) {
+    return db.prepare('DELETE FROM products WHERE id = ? AND bot_id = ?').run(id, botId);
+  }
+  return db.prepare('DELETE FROM products WHERE id = ?').run(id);
 };
 
 const decrementStock = (id, quantity) => {

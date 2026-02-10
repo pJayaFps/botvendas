@@ -10,6 +10,7 @@ const {
   TextInputBuilder,
   TextInputStyle
 } = require('discord.js');
+const { db } = require('../database');
 const { getOrCreateCart, addItem, listCartItems, updateItemQuantity, clearCart, closeCart, setCartCoupon, clearCartCoupon } = require('../database/models/cart');
 const { getProduct, decrementStock, listProducts } = require('../database/models/products');
 const { createOrder, updateOrderStatus } = require('../database/models/orders');
@@ -81,8 +82,19 @@ module.exports = {
         if (!product) {
           return interaction.reply({ content: 'Produto não encontrado.', flags: MessageFlags.Ephemeral });
         }
+        const availableStock = Number(product.stock) || 0;
+        if (availableStock <= 0) {
+          return interaction.reply({ content: 'Produto sem estoque no momento.', flags: MessageFlags.Ephemeral });
+        }
         const bot = getBotContext();
         const cart = getOrCreateCart(interaction.user.id, bot.id);
+        const items = listCartItems(cart.id);
+        const currentQuantity = items
+          .filter((item) => item.product_id === productId)
+          .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+        if (currentQuantity + 1 > availableStock) {
+          return interaction.reply({ content: 'Quantidade máxima em estoque atingida.', flags: MessageFlags.Ephemeral });
+        }
         addItem(cart.id, productId, 1, bot.id);
         const view = buildCartView(cart.id);
         return interaction.reply({ embeds: [view.embed], components: view.components, flags: MessageFlags.Ephemeral });
@@ -113,7 +125,20 @@ module.exports = {
         if (!target) {
           return interaction.reply({ content: 'Item não encontrado.', flags: MessageFlags.Ephemeral });
         }
-        if (action === 'increase') updateItemQuantity(itemId, target.quantity + 1);
+        if (action === 'increase') {
+          const product = getProduct(target.product_id);
+          const availableStock = Number(product?.stock) || 0;
+          if (!product || availableStock <= 0) {
+            return interaction.reply({ content: 'Produto sem estoque no momento.', flags: MessageFlags.Ephemeral });
+          }
+          const currentQuantity = items
+            .filter((item) => item.product_id === target.product_id)
+            .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+          if (currentQuantity + 1 > availableStock) {
+            return interaction.reply({ content: 'Quantidade máxima em estoque atingida.', flags: MessageFlags.Ephemeral });
+          }
+          updateItemQuantity(itemId, target.quantity + 1);
+        }
         if (action === 'decrease') updateItemQuantity(itemId, target.quantity - 1);
         if (action === 'remove') updateItemQuantity(itemId, 0);
         const view = buildCartView(cart.id);
@@ -148,12 +173,39 @@ module.exports = {
           return interaction.editReply({ content: 'Seu carrinho está vazio.' });
         }
 
+        const quantityByProduct = new Map();
+        items.forEach((item) => {
+          const current = quantityByProduct.get(item.product_id) || 0;
+          quantityByProduct.set(item.product_id, current + Number(item.quantity || 0));
+        });
+        const unavailable = [...quantityByProduct.entries()].find(([productId, quantity]) => {
+          const product = getProduct(productId);
+          const availableStock = Number(product?.stock) || 0;
+          return !product || availableStock < quantity || availableStock <= 0;
+        });
+        if (unavailable) {
+          return interaction.editReply({ content: 'Alguns itens estão sem estoque suficiente. Ajuste o carrinho antes de finalizar.' });
+        }
+
         const total = calculateTotal(items);
         const coupon = cart.coupon_code ? getCouponByCode(cart.coupon_code) : null;
         const discountData = applyCouponDiscount(total, coupon);
+
+        const decremented = [];
+        for (const [productId, quantity] of quantityByProduct.entries()) {
+          const result = decrementStock(productId, quantity);
+          if (result?.changes) {
+            decremented.push({ productId, quantity });
+            continue;
+          }
+          decremented.forEach((entry) => {
+            db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(entry.quantity, entry.productId);
+          });
+          return interaction.editReply({ content: 'Alguns itens ficaram sem estoque. Atualize o carrinho e tente novamente.' });
+        }
+
         const order = createOrder(interaction.user.id, items, discountData.total, 'PENDENTE', bot.id);
         closeCart(cart.id);
-        items.forEach((item) => decrementStock(item.product_id, item.quantity));
         upsertCustomer(interaction.user.id, interaction.user.username, bot.id);
         addXp(interaction.user.id, Math.round(discountData.total), bot.id);
         const discountRatio = total > 0 ? discountData.total / total : 1;

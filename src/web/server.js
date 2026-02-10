@@ -8,7 +8,7 @@ const { db, init } = require('../database');
 const { countUsers, getUserByEmail, createUser, getUserById } = require('../database/models/users');
 const { listBotsByOwner, upsertBotByToken, getBotById } = require('../database/models/bots');
 const { listSalesByBotStatus } = require('../database/models/sales');
-const { listProducts, createProduct } = require('../database/models/products');
+const { listProducts, createProduct, deleteProduct } = require('../database/models/products');
 const { listCoupons } = require('../database/models/coupons');
 
 const app = express();
@@ -141,7 +141,7 @@ app.post('/bots/:botId/products/:productId/delete', authRequired, roleRequired([
   if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
     return res.status(404).send('Bot não encontrado.');
   }
-  db.prepare('UPDATE products SET active = 0 WHERE id = ? AND bot_id = ?').run(req.params.productId, bot.id);
+  deleteProduct(req.params.productId, bot.id);
   return res.redirect(`/bots/${bot.id}/products`);
 });
 
