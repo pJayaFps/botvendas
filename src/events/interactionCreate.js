@@ -25,6 +25,7 @@ const { generatePixQr } = require('../utils/pix');
 const { recommendProducts } = require('../utils/ai');
 const { getCouponByCode, incrementCouponUsage } = require('../database/models/coupons');
 const { applyCouponDiscount } = require('../utils/coupons');
+const { createOrUpdateDelivery } = require('../database/models/deliveries');
 
 module.exports = {
   name: 'interactionCreate',
@@ -292,12 +293,28 @@ module.exports = {
         });
         const channel = await interaction.client.channels.fetch(receipt.channelId);
         await channel.send({ content: `<@${receipt.userId}>`, embeds: [approvedEmbed] });
-        await interaction.reply({ content: 'Pagamento aprovado e cliente notificado.', flags: MessageFlags.Ephemeral });
-        await channel.send({ content: 'Este canal será deletado em instantes...' });
+
+        const receiptUser = await interaction.client.users.fetch(receipt.userId).catch(() => null);
+        const baseName = receiptUser?.username || `user-${receipt.userId}`;
+        const usernameSlug = baseName
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '');
+        const initialName = `3d-${usernameSlug}`.slice(0, 100);
+        await channel.setName(initialName).catch(() => null);
+
+        createOrUpdateDelivery({
+          orderId: Number(orderId),
+          channelId: String(channel.id),
+          userId: String(receipt.userId),
+          usernameSlug,
+          approvedAt: new Date().toISOString()
+        });
+
+        await interaction.reply({ content: 'Pagamento aprovado. Canal renomeado com prazo de entrega (3 dias).', flags: MessageFlags.Ephemeral });
+        await channel.send({ content: `✅ Pagamento aprovado. Prazo de entrega: **3 dias**.` });
         clearReceipt(orderId);
-        setTimeout(async () => {
-          await channel.delete('Checkout finalizado');
-        }, 20000);
       }
 
       if (interaction.customId.startsWith('receipt-reject-')) {

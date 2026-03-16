@@ -183,6 +183,16 @@ const init = async () => {
       status TEXT NOT NULL,
       data TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS delivery_channels (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER UNIQUE NOT NULL,
+      channel_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      username_slug TEXT NOT NULL,
+      approved_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'aberto'
+    );
   `);
   addColumnIfMissing('products', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('orders', 'bot_id', 'INTEGER DEFAULT 1');
@@ -194,6 +204,7 @@ const init = async () => {
   addColumnIfMissing('cart_items', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('customers', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('bots', 'discord_bot_id', 'TEXT');
+
   const token = config.discord.token || 'default-token';
   const existingBot = db.prepare('SELECT id FROM bots WHERE bot_token = ?').get(token);
   let defaultBotId = existingBot?.id;

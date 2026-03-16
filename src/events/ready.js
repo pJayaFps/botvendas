@@ -1,9 +1,10 @@
+const { syncDeliveryChannels } = require('../utils/deliveryTracker');
 const { buildPremiumEmbed } = require('../utils/embeds');
 
 module.exports = {
   name: 'clientReady',
   once: true,
-  execute(client) {
+  async execute(client) {
     const embed = buildPremiumEmbed({
       title: 'VIA BOT Online',
       description: `Conectado como ${client.user.tag}.`
@@ -12,5 +13,10 @@ module.exports = {
     if (client.logChannel) {
       client.logChannel.send({ embeds: [embed] }).catch(() => null);
     }
+
+    await syncDeliveryChannels(client).catch(() => null);
+    setInterval(() => {
+      syncDeliveryChannels(client).catch(() => null);
+    }, 60 * 60 * 1000);
   }
 };
