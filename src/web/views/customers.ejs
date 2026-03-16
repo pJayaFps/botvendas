@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clientes • VIA BOT</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-white">
+  <header class="bg-gradient-to-r from-violet-700 to-blue-500 p-6 shadow-2xl">
+    <h1 class="text-3xl font-bold">Clientes Premium</h1>
+  </header>
+  <main class="p-8">
+    <table class="w-full text-sm border border-violet-600 rounded-xl overflow-hidden">
+      <thead class="bg-slate-900">
+        <tr>
+          <th class="p-3 text-left">Cliente</th>
+          <th class="p-3">XP</th>
+          <th class="p-3">Nível</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% customers.forEach((customer) => { %>
+          <tr class="border-t border-slate-800">
+            <td class="p-3"><%= customer.name %></td>
+            <td class="p-3 text-center"><%= customer.xp %></td>
+            <td class="p-3 text-center"><%= customer.level %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Produtos • VIA BOT</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-white">
+  <header class="bg-gradient-to-r from-violet-700 to-blue-500 p-6 shadow-2xl">
+    <h1 class="text-3xl font-bold">Catálogo Administrável</h1>
+  </header>
+  <main class="p-8">
+    <table class="w-full text-sm border border-violet-600 rounded-xl overflow-hidden">
+      <thead class="bg-slate-900">
+        <tr>
+          <th class="p-3 text-left">Produto</th>
+          <th class="p-3">Categoria</th>
+          <th class="p-3">Preço</th>
+          <th class="p-3">Estoque</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% products.forEach((product) => { %>
+          <tr class="border-t border-slate-800">
+            <td class="p-3"><%= product.name %></td>
+            <td class="p-3 text-center"><%= product.category %></td>
+            <td class="p-3 text-center">R$ <%= product.price.toFixed(2) %></td>
+            <td class="p-3 text-center"><%= product.stock %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>
