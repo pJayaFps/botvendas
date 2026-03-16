@@ -13,7 +13,7 @@ const {
 const { db } = require('../database');
 const { getOrCreateCart, addItem, listCartItems, updateItemQuantity, clearCart, closeCart, setCartCoupon, clearCartCoupon } = require('../database/models/cart');
 const { getProduct, decrementStock, listProducts } = require('../database/models/products');
-const { createOrder, updateOrderStatus } = require('../database/models/orders');
+const { createOrder, listOrderItems, updateOrderStatus } = require('../database/models/orders');
 const { upsertCustomer, addXp, getCustomer } = require('../database/models/customers');
 const { getBotContext } = require('../database/models/bots');
 const { createSale, updateSaleStatusByOrder } = require('../database/models/sales');
@@ -192,19 +192,6 @@ module.exports = {
         const coupon = cart.coupon_code ? getCouponByCode(cart.coupon_code) : null;
         const discountData = applyCouponDiscount(total, coupon);
 
-        const decremented = [];
-        for (const [productId, quantity] of quantityByProduct.entries()) {
-          const result = decrementStock(productId, quantity);
-          if (result?.changes) {
-            decremented.push({ productId, quantity });
-            continue;
-          }
-          decremented.forEach((entry) => {
-            db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(entry.quantity, entry.productId);
-          });
-          return interaction.editReply({ content: 'Alguns itens ficaram sem estoque. Atualize o carrinho e tente novamente.' });
-        }
-
         const order = createOrder(interaction.user.id, items, discountData.total, 'PENDENTE', bot.id);
         closeCart(cart.id);
         upsertCustomer(interaction.user.id, interaction.user.username, bot.id);
@@ -261,7 +248,13 @@ module.exports = {
         );
 
         embed.addFields({ name: 'Envie o comprovante', value: 'Envie aqui o comprovante do pagamento para análise.' });
-        await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [actionRow], files: [attachment] });
+        const paymentMessage = await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [actionRow], files: [attachment] });
+        const { saveReceipt } = require('../utils/receiptStore');
+        saveReceipt(order.id, {
+          channelId: channel.id,
+          userId: interaction.user.id,
+          paymentMessageId: paymentMessage.id
+        });
 
         const recommendation = await recommendProducts({ cartItems: items });
         const recoEmbed = buildPremiumEmbed({
@@ -284,14 +277,41 @@ module.exports = {
         if (interaction.user.id !== interaction.client.config?.discord?.adminId && !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
           return interaction.reply({ content: 'Apenas o administrador pode aprovar.', flags: MessageFlags.Ephemeral });
         }
+        const orderItems = listOrderItems(orderId);
+        const quantityByProduct = new Map();
+        orderItems.forEach((item) => {
+          const current = quantityByProduct.get(item.product_id) || 0;
+          quantityByProduct.set(item.product_id, current + Number(item.quantity || 0));
+        });
+
+        const decremented = [];
+        for (const [productId, quantity] of quantityByProduct.entries()) {
+          const result = decrementStock(productId, quantity);
+          if (result?.changes) {
+            decremented.push({ productId, quantity });
+            continue;
+          }
+          decremented.forEach((entry) => {
+            db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(entry.quantity, entry.productId);
+          });
+          return interaction.reply({ content: 'Não foi possível aprovar: estoque insuficiente no momento.', flags: MessageFlags.Ephemeral });
+        }
+
         updateOrderStatus(orderId, 'APROVADO');
         const bot = getBotContext();
         updateSaleStatusByOrder(bot.id, receipt.userId, 'paga');
-        const approvedEmbed = buildPremiumEmbed({
-          title: 'Pagamento Aprovado',
-          description: '✅ Pagamento confirmado! Obrigado pela sua compra.'
-        });
+
         const channel = await interaction.client.channels.fetch(receipt.channelId);
+        const toDelete = [receipt.paymentMessageId, receipt.receiptMessageId].filter(Boolean);
+        for (const messageId of toDelete) {
+          const message = await channel.messages.fetch(messageId).catch(() => null);
+          if (message) await message.delete().catch(() => null);
+        }
+
+        const approvedEmbed = buildPremiumEmbed({
+          title: 'Pagamento Confirmado',
+          description: `✅ Pagamento confirmado! Obrigado pela sua compra.\n📦 Prazo de entrega: **3 dias**.`
+        });
         await channel.send({ content: `<@${receipt.userId}>`, embeds: [approvedEmbed] });
 
         const receiptUser = await interaction.client.users.fetch(receipt.userId).catch(() => null);
@@ -312,8 +332,7 @@ module.exports = {
           approvedAt: new Date().toISOString()
         });
 
-        await interaction.reply({ content: 'Pagamento aprovado. Canal renomeado com prazo de entrega (3 dias).', flags: MessageFlags.Ephemeral });
-        await channel.send({ content: `✅ Pagamento aprovado. Prazo de entrega: **3 dias**.` });
+        await interaction.reply({ content: 'Pagamento aprovado, PIX/comprovante removidos e prazo iniciado (3 dias).', flags: MessageFlags.Ephemeral });
         clearReceipt(orderId);
       }
 
