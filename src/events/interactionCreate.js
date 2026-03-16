@@ -244,7 +244,11 @@ module.exports = {
             .setCustomId('payment-info')
             .setLabel('Aguardando pagamento automático')
             .setStyle(ButtonStyle.Secondary)
-            .setDisabled(true)
+            .setDisabled(true),
+          new ButtonBuilder()
+            .setCustomId(`close-checkout-${order.id}`)
+            .setLabel('Fechar atendimento')
+            .setStyle(ButtonStyle.Danger)
         );
 
         embed.addFields({ name: 'Envie o comprovante', value: 'Envie aqui o comprovante do pagamento para análise.' });
@@ -265,6 +269,27 @@ module.exports = {
 
         updateOrderStatus(order.id, 'PENDENTE');
         return interaction.editReply({ content: `Checkout criado! Acesse ${channel} para finalizar o pagamento.` });
+      }
+
+      if (interaction.customId.startsWith('close-checkout-')) {
+        const orderId = interaction.customId.split('-').pop();
+        if (interaction.user.id !== interaction.client.config?.discord?.adminId && !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+          return interaction.reply({ content: 'Apenas administrador pode fechar o atendimento.', flags: MessageFlags.Ephemeral });
+        }
+
+        const { clearReceipt } = require('../utils/receiptStore');
+        const bot = getBotContext();
+        const order = db.prepare('SELECT user_id FROM orders WHERE id = ?').get(orderId);
+        updateOrderStatus(orderId, 'CANCELADO');
+        if (order?.user_id) {
+          updateSaleStatusByOrder(bot.id, order.user_id, 'cancelada');
+        }
+        clearReceipt(orderId);
+
+        await interaction.reply({ content: 'Atendimento encerrado. Canal será fechado.', flags: MessageFlags.Ephemeral });
+        await interaction.channel.send({ content: '❌ Atendimento finalizado sem pagamento. Canal encerrado.' }).catch(() => null);
+        await interaction.channel.delete('Atendimento encerrado manualmente').catch(() => null);
+        return;
       }
 
       if (interaction.customId.startsWith('receipt-approve-')) {
@@ -347,6 +372,8 @@ module.exports = {
           return interaction.reply({ content: 'Apenas o administrador pode reprovar.', flags: MessageFlags.Ephemeral });
         }
         updateOrderStatus(orderId, 'CANCELADO');
+        const bot = getBotContext();
+        updateSaleStatusByOrder(bot.id, receipt.userId, 'cancelada');
         const rejectedEmbed = buildPremiumEmbed({
           title: 'Pagamento Não Confirmado',
           description: '❌ Não identificamos o pagamento. Envie outro comprovante.'
