@@ -192,6 +192,19 @@ module.exports = {
         const coupon = cart.coupon_code ? getCouponByCode(cart.coupon_code) : null;
         const discountData = applyCouponDiscount(total, coupon);
 
+        const decremented = [];
+        for (const [productId, quantity] of quantityByProduct.entries()) {
+          const result = decrementStock(productId, quantity);
+          if (result?.changes) {
+            decremented.push({ productId, quantity });
+            continue;
+          }
+          decremented.forEach((entry) => {
+            db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(entry.quantity, entry.productId);
+          });
+          return interaction.editReply({ content: 'Estoque reservado por outro checkout agora. Tente novamente em instantes.' });
+        }
+
         const order = createOrder(interaction.user.id, items, discountData.total, 'PENDENTE', bot.id);
         closeCart(cart.id);
         upsertCustomer(interaction.user.id, interaction.user.username, bot.id);
@@ -279,7 +292,23 @@ module.exports = {
 
         const { clearReceipt } = require('../utils/receiptStore');
         const bot = getBotContext();
-        const order = db.prepare('SELECT user_id FROM orders WHERE id = ?').get(orderId);
+        const order = db.prepare('SELECT user_id, status FROM orders WHERE id = ?').get(orderId);
+        if (!order) {
+          return interaction.reply({ content: 'Pedido não encontrado.', flags: MessageFlags.Ephemeral });
+        }
+
+        if (order.status === 'PENDENTE') {
+          const orderItems = listOrderItems(orderId);
+          const quantityByProduct = new Map();
+          orderItems.forEach((item) => {
+            const current = quantityByProduct.get(item.product_id) || 0;
+            quantityByProduct.set(item.product_id, current + Number(item.quantity || 0));
+          });
+          for (const [productId, quantity] of quantityByProduct.entries()) {
+            db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(quantity, productId);
+          }
+        }
+
         updateOrderStatus(orderId, 'CANCELADO');
         if (order?.user_id) {
           updateSaleStatusByOrder(bot.id, order.user_id, 'cancelada');
@@ -302,26 +331,6 @@ module.exports = {
         if (interaction.user.id !== interaction.client.config?.discord?.adminId && !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
           return interaction.reply({ content: 'Apenas o administrador pode aprovar.', flags: MessageFlags.Ephemeral });
         }
-        const orderItems = listOrderItems(orderId);
-        const quantityByProduct = new Map();
-        orderItems.forEach((item) => {
-          const current = quantityByProduct.get(item.product_id) || 0;
-          quantityByProduct.set(item.product_id, current + Number(item.quantity || 0));
-        });
-
-        const decremented = [];
-        for (const [productId, quantity] of quantityByProduct.entries()) {
-          const result = decrementStock(productId, quantity);
-          if (result?.changes) {
-            decremented.push({ productId, quantity });
-            continue;
-          }
-          decremented.forEach((entry) => {
-            db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(entry.quantity, entry.productId);
-          });
-          return interaction.reply({ content: 'Não foi possível aprovar: estoque insuficiente no momento.', flags: MessageFlags.Ephemeral });
-        }
-
         updateOrderStatus(orderId, 'APROVADO');
         const bot = getBotContext();
         updateSaleStatusByOrder(bot.id, receipt.userId, 'paga');
