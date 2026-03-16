@@ -10,6 +10,7 @@ const { listBotsByOwner, upsertBotByToken, getBotById } = require('../database/m
 const { listSalesByBotStatus } = require('../database/models/sales');
 const { listProducts, listProductsForPanel, createProduct, deleteProduct, getProductByBot, updateProduct } = require('../database/models/products');
 const { listCoupons } = require('../database/models/coupons');
+const { getTicketSettings, upsertTicketSettings } = require('../database/models/tickets');
 
 const app = express();
 
@@ -108,6 +109,47 @@ app.get('/dashboard/:botId', authRequired, (req, res) => {
   const products = listProducts(bot.id).slice(0, 5);
   const coupons = listCoupons(bot.id).slice(0, 5);
   res.render('dashboard-bot', { bot, sales, pending, revenue, products, coupons });
+});
+
+app.get('/bots/:botId/tickets', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
+  const bot = getBotById(req.params.botId);
+  if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
+    return res.status(404).send('Bot não encontrado.');
+  }
+  const settings = getTicketSettings(bot.id, req.query.guild_id || config.discord.guildId || '') || {};
+  res.render('tickets-settings', { bot, settings });
+});
+
+app.post('/bots/:botId/tickets', authRequired, roleRequired(['owner', 'admin']), (req, res) => {
+  const bot = getBotById(req.params.botId);
+  if (!bot || String(bot.owner_id) !== String(req.user.userId)) {
+    return res.status(404).send('Bot não encontrado.');
+  }
+
+  const guildId = req.body.guild_id || config.discord.guildId || '';
+  upsertTicketSettings({
+    bot_id: bot.id,
+    guild_id: guildId,
+    panel_title: req.body.panel_title,
+    panel_description: req.body.panel_description,
+    ticket_category_id: req.body.ticket_category_id,
+    staff_role_id: req.body.staff_role_id,
+    opener_role_id: req.body.opener_role_id,
+    auto_message: req.body.auto_message,
+    log_channel_id: req.body.log_channel_id,
+    closed_category_id: req.body.closed_category_id,
+    delete_after_seconds: Number(req.body.delete_after_seconds || 20),
+    pix_qr_url: req.body.pix_qr_url,
+    pix_key: req.body.pix_key,
+    pix_receiver: req.body.pix_receiver,
+    pix_embed_message: req.body.pix_embed_message,
+    transcript_type: req.body.transcript_type || 'txt',
+    transcript_channel_id: req.body.transcript_channel_id,
+    feedback_channel_id: req.body.feedback_channel_id,
+    updated_at: new Date().toISOString()
+  });
+
+  return res.redirect(`/bots/${bot.id}/tickets?guild_id=${encodeURIComponent(guildId)}`);
 });
 
 app.get('/bots/:botId/products', authRequired, (req, res) => {

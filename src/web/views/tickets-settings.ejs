@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configurações de Tickets • <%= bot.bot_name %></title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-white">
+  <header class="bg-gradient-to-r from-violet-700 to-blue-500 p-6 shadow-2xl flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold">Tickets • <%= bot.bot_name %></h1>
+      <p class="text-sm opacity-80">Sistema isolado de tickets e PIX do atendimento.</p>
+    </div>
+    <a href="/dashboard/<%= bot.id %>" class="bg-slate-900/60 border border-blue-300 px-4 py-2 rounded-lg">Voltar</a>
+  </header>
+
+  <main class="p-8">
+    <form method="POST" action="/bots/<%= bot.id %>/tickets" class="bg-slate-900 p-6 rounded-xl border border-violet-600 space-y-4">
+      <h2 class="text-xl font-semibold">Configurar Tickets</h2>
+      <input name="guild_id" value="<%= settings.guild_id || '' %>" placeholder="ID do servidor" class="w-full p-3 rounded bg-slate-800" required />
+      <input name="panel_title" value="<%= settings.panel_title || '' %>" placeholder="Título do painel" class="w-full p-3 rounded bg-slate-800" />
+      <textarea name="panel_description" placeholder="Descrição do painel" class="w-full p-3 rounded bg-slate-800"><%= settings.panel_description || '' %></textarea>
+      <input name="ticket_category_id" value="<%= settings.ticket_category_id || '' %>" placeholder="Categoria dos tickets" class="w-full p-3 rounded bg-slate-800" />
+      <input name="staff_role_id" value="<%= settings.staff_role_id || '' %>" placeholder="Cargo da staff" class="w-full p-3 rounded bg-slate-800" />
+      <input name="opener_role_id" value="<%= settings.opener_role_id || '' %>" placeholder="Cargo que pode abrir" class="w-full p-3 rounded bg-slate-800" />
+      <textarea name="auto_message" placeholder="Mensagem automática ao abrir" class="w-full p-3 rounded bg-slate-800"><%= settings.auto_message || '' %></textarea>
+      <input name="log_channel_id" value="<%= settings.log_channel_id || '' %>" placeholder="Canal de logs" class="w-full p-3 rounded bg-slate-800" />
+      <input name="closed_category_id" value="<%= settings.closed_category_id || '' %>" placeholder="Categoria de tickets fechados" class="w-full p-3 rounded bg-slate-800" />
+      <input name="delete_after_seconds" type="number" value="<%= settings.delete_after_seconds || 20 %>" placeholder="Deletar após X segundos" class="w-full p-3 rounded bg-slate-800" />
+
+      <h3 class="text-lg font-semibold pt-2">PIX</h3>
+      <input name="pix_qr_url" value="<%= settings.pix_qr_url || '' %>" placeholder="URL do QR Code" class="w-full p-3 rounded bg-slate-800" />
+      <input name="pix_key" value="<%= settings.pix_key || '' %>" placeholder="Chave PIX" class="w-full p-3 rounded bg-slate-800" />
+      <input name="pix_receiver" value="<%= settings.pix_receiver || '' %>" placeholder="Nome do recebedor" class="w-full p-3 rounded bg-slate-800" />
+      <textarea name="pix_embed_message" placeholder="Mensagem embed PIX" class="w-full p-3 rounded bg-slate-800"><%= settings.pix_embed_message || '' %></textarea>
+
+      <h3 class="text-lg font-semibold pt-2">Transcript</h3>
+      <input name="transcript_type" value="<%= settings.transcript_type || 'txt' %>" placeholder="Tipo (txt/html)" class="w-full p-3 rounded bg-slate-800" />
+      <input name="transcript_channel_id" value="<%= settings.transcript_channel_id || '' %>" placeholder="Canal para armazenar transcript (opcional)" class="w-full p-3 rounded bg-slate-800" />
+      <input name="feedback_channel_id" value="<%= settings.feedback_channel_id || '' %>" placeholder="Canal de feedback" class="w-full p-3 rounded bg-slate-800" />
+
+      <button class="bg-violet-600 px-4 py-2 rounded">Salvar configurações</button>
+    </form>
+  </main>
+</body>
+</html>

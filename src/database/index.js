@@ -184,6 +184,45 @@ const init = async () => {
       data TEXT NOT NULL
     );
 
+
+    CREATE TABLE IF NOT EXISTS ticket_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bot_id INTEGER NOT NULL DEFAULT 1,
+      guild_id TEXT NOT NULL,
+      panel_title TEXT,
+      panel_description TEXT,
+      ticket_category_id TEXT,
+      staff_role_id TEXT,
+      opener_role_id TEXT,
+      auto_message TEXT,
+      log_channel_id TEXT,
+      closed_category_id TEXT,
+      delete_after_seconds INTEGER DEFAULT 20,
+      pix_qr_url TEXT,
+      pix_key TEXT,
+      pix_receiver TEXT,
+      pix_embed_message TEXT,
+      transcript_type TEXT DEFAULT 'txt',
+      transcript_channel_id TEXT,
+      feedback_channel_id TEXT,
+      updated_at TEXT,
+      UNIQUE(bot_id, guild_id)
+    );
+    CREATE TABLE IF NOT EXISTS tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bot_id INTEGER NOT NULL DEFAULT 1,
+      guild_id TEXT NOT NULL,
+      channel_id TEXT UNIQUE NOT NULL,
+      opened_by TEXT NOT NULL,
+      assumed_by TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      final_status TEXT,
+      close_notes TEXT,
+      closed_by TEXT,
+      created_at TEXT NOT NULL,
+      closed_at TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS delivery_channels (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       order_id INTEGER UNIQUE NOT NULL,
@@ -204,6 +243,15 @@ const init = async () => {
   addColumnIfMissing('cart_items', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('customers', 'bot_id', 'INTEGER DEFAULT 1');
   addColumnIfMissing('bots', 'discord_bot_id', 'TEXT');
+
+  addColumnIfMissing('ticket_settings', 'bot_id', 'INTEGER NOT NULL DEFAULT 1');
+  addColumnIfMissing('ticket_settings', 'guild_id', 'TEXT');
+  addColumnIfMissing('ticket_settings', 'feedback_channel_id', 'TEXT');
+  addColumnIfMissing('tickets', 'bot_id', 'INTEGER NOT NULL DEFAULT 1');
+  addColumnIfMissing('tickets', 'guild_id', 'TEXT');
+  addColumnIfMissing('tickets', 'assumed_by', 'TEXT');
+  addColumnIfMissing('tickets', 'final_status', 'TEXT');
+  addColumnIfMissing('tickets', 'close_notes', 'TEXT');
 
   const token = config.discord.token || 'default-token';
   const existingBot = db.prepare('SELECT id FROM bots WHERE bot_token = ?').get(token);

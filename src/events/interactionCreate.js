@@ -26,6 +26,18 @@ const { recommendProducts } = require('../utils/ai');
 const { getCouponByCode, incrementCouponUsage } = require('../database/models/coupons');
 const { applyCouponDiscount } = require('../utils/coupons');
 const { createOrUpdateDelivery } = require('../database/models/deliveries');
+const { getTicketSettings, upsertTicketSettings, createTicketRecord, getTicketByChannel, setTicketAssignee, closeTicketRecord } = require('../database/models/tickets');
+
+
+const isStaffTicket = (member, settings) => {
+  if (!settings?.staff_role_id) return false;
+  return member?.roles?.cache?.has(settings.staff_role_id);
+};
+
+const isAllowedOpener = (member, settings) => {
+  if (!settings?.opener_role_id) return true;
+  return member?.roles?.cache?.has(settings.opener_role_id) || isStaffTicket(member, settings);
+};
 
 module.exports = {
   name: 'interactionCreate',
@@ -54,6 +66,141 @@ module.exports = {
     }
 
     if (interaction.isButton()) {
+      if (interaction.customId === 'ticket-open') {
+        const bot = getBotContext();
+        const settings = getTicketSettings(bot.id, interaction.guildId);
+        if (!settings) {
+          return interaction.reply({ content: 'Sistema de tickets não configurado.', flags: MessageFlags.Ephemeral });
+        }
+        if (!isAllowedOpener(interaction.member, settings)) {
+          return interaction.reply({ content: 'Você não tem permissão para abrir ticket.', flags: MessageFlags.Ephemeral });
+        }
+
+        const channelName = `ticket-${interaction.user.username}`.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 90);
+        const channel = await interaction.guild.channels.create({
+          name: channelName || `ticket-${interaction.user.id}`,
+          type: ChannelType.GuildText,
+          parent: settings.ticket_category_id || undefined,
+          topic: `Ticket Suporte • Usuário ${interaction.user.id}`,
+          permissionOverwrites: [
+            { id: interaction.guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
+            { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+            { id: interaction.client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
+            ...(settings.staff_role_id ? [{ id: settings.staff_role_id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }] : [])
+          ]
+        });
+
+        createTicketRecord({ botId: bot.id, guildId: interaction.guildId, channelId: channel.id, openedBy: interaction.user.id });
+
+        const openEmbed = buildPremiumEmbed({
+          title: 'Ticket Aberto',
+          description: settings.auto_message || 'Nosso time vai te atender em instantes.'
+        });
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('ticket-member-panel').setLabel('Painel Membro').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('ticket-staff-panel').setLabel('Painel Staff').setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId('ticket-exit').setLabel('Sair do Ticket').setStyle(ButtonStyle.Danger),
+          new ButtonBuilder().setCustomId('ticket-payment-confirmed').setLabel('Pagamento Confirmado').setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId('ticket-assume').setLabel('Assumir Ticket').setStyle(ButtonStyle.Secondary)
+        );
+        await channel.send({ content: `<@${interaction.user.id}>`, embeds: [openEmbed], components: [row] });
+        return interaction.reply({ content: `Ticket criado: ${channel}`, flags: MessageFlags.Ephemeral });
+      }
+
+      if (interaction.customId === 'ticket-assume') {
+        const ticket = getTicketByChannel(interaction.channelId);
+        if (!ticket) return interaction.reply({ content: 'Use dentro de ticket.', flags: MessageFlags.Ephemeral });
+        const bot = getBotContext();
+        const settings = getTicketSettings(bot.id, interaction.guildId);
+        if (!isStaffTicket(interaction.member, settings)) {
+          return interaction.reply({ content: 'Apenas staff pode assumir.', flags: MessageFlags.Ephemeral });
+        }
+        setTicketAssignee(interaction.channelId, interaction.user.id);
+        await interaction.channel.send({ content: `Este ticket foi assumido por ${interaction.user}.` });
+        return interaction.reply({ content: 'Ticket assumido.', flags: MessageFlags.Ephemeral });
+      }
+
+      if (interaction.customId === 'ticket-member-panel') {
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('ticket-member-add').setLabel('Adicionar membro').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('ticket-member-remove').setLabel('Remover membro').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('ticket-member-notify').setLabel('Notificar staff').setStyle(ButtonStyle.Primary)
+        );
+        return interaction.reply({ content: 'Painel do membro:', components: [row], flags: MessageFlags.Ephemeral });
+      }
+
+      if (interaction.customId === 'ticket-staff-panel') {
+        const bot = getBotContext();
+        const settings = getTicketSettings(bot.id, interaction.guildId);
+        if (!isStaffTicket(interaction.member, settings)) {
+          return interaction.reply({ content: 'Apenas staff.', flags: MessageFlags.Ephemeral });
+        }
+        const row1 = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('ticket-staff-add').setLabel('Adicionar usuário').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('ticket-staff-remove').setLabel('Remover usuário').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('ticket-staff-rename').setLabel('Renomear').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('ticket-staff-close').setLabel('Fechar Ticket').setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId('ticket-staff-delete').setLabel('Deletar Ticket').setStyle(ButtonStyle.Danger)
+        );
+        const row2 = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('ticket-staff-notify').setLabel('Notificar usuário').setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId('ticket-staff-resolve').setLabel('Marcar resolvido').setStyle(ButtonStyle.Success)
+        );
+        return interaction.reply({ content: 'Painel da staff:', components: [row1, row2], flags: MessageFlags.Ephemeral });
+      }
+
+      if (interaction.customId === 'ticket-exit') {
+        const modal = new ModalBuilder().setCustomId('ticket-exit-modal').setTitle('Sair do ticket');
+        const confirm = new TextInputBuilder().setCustomId('confirm').setLabel('Digite SAIR para confirmar').setStyle(TextInputStyle.Short).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(confirm));
+        return interaction.showModal(modal);
+      }
+
+      if (interaction.customId === 'ticket-member-notify') {
+        const bot = getBotContext();
+        const settings = getTicketSettings(bot.id, interaction.guildId);
+        const mention = settings?.staff_role_id ? `<@&${settings.staff_role_id}>` : '@staff';
+        await interaction.channel.send({ content: `${mention} usuário solicitou atendimento no ticket.` });
+        return interaction.reply({ content: 'Staff notificada.', flags: MessageFlags.Ephemeral });
+      }
+
+      if (interaction.customId === 'ticket-payment-confirmed' || interaction.customId === 'ticket-staff-resolve') {
+        const bot = getBotContext();
+        const settings = getTicketSettings(bot.id, interaction.guildId);
+        if (!isStaffTicket(interaction.member, settings)) {
+          return interaction.reply({ content: 'Apenas staff.', flags: MessageFlags.Ephemeral });
+        }
+        await interaction.channel.send({ content: `✅ ${interaction.user} confirmou pagamento/atendimento no ticket.` });
+        return interaction.reply({ content: 'Ação registrada.', flags: MessageFlags.Ephemeral });
+      }
+
+      if (interaction.customId === 'ticket-staff-delete') {
+        await interaction.reply({ content: 'Ticket será deletado.', flags: MessageFlags.Ephemeral });
+        return interaction.channel.delete('Ticket deletado pela staff').catch(() => null);
+      }
+
+      if (interaction.customId === 'ticket-staff-add' || interaction.customId === 'ticket-member-add' || interaction.customId === 'ticket-staff-remove' || interaction.customId === 'ticket-member-remove') {
+        const modal = new ModalBuilder().setCustomId(`${interaction.customId}-modal`).setTitle('Gerenciar usuário no ticket');
+        const input = new TextInputBuilder().setCustomId('userId').setLabel('ID do usuário').setStyle(TextInputStyle.Short).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        return interaction.showModal(modal);
+      }
+
+      if (interaction.customId === 'ticket-staff-rename') {
+        const modal = new ModalBuilder().setCustomId('ticket-rename-modal').setTitle('Renomear ticket');
+        const input = new TextInputBuilder().setCustomId('name').setLabel('Novo nome').setStyle(TextInputStyle.Short).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        return interaction.showModal(modal);
+      }
+
+      if (interaction.customId === 'ticket-staff-close') {
+        const modal = new ModalBuilder().setCustomId('ticket-close-modal').setTitle('Fechar ticket');
+        const status = new TextInputBuilder().setCustomId('status').setLabel('Status final (resolvido/não)').setStyle(TextInputStyle.Short).setRequired(true);
+        const notes = new TextInputBuilder().setCustomId('notes').setLabel('Observações rápidas').setStyle(TextInputStyle.Paragraph).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(status), new ActionRowBuilder().addComponents(notes));
+        return interaction.showModal(modal);
+      }
+
       if (interaction.customId === 'panel-open-catalog') {
         const bot = getBotContext();
         const view = buildCatalogView({ botId: bot.id });
@@ -393,6 +540,125 @@ module.exports = {
         clearReceipt(orderId);
       }
 
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'ticket-panel-modal') {
+      const bot = getBotContext();
+      const data = {
+        bot_id: bot.id,
+        guild_id: interaction.guildId,
+        panel_title: interaction.fields.getTextInputValue('title'),
+        panel_description: interaction.fields.getTextInputValue('description'),
+        ticket_category_id: interaction.fields.getTextInputValue('category'),
+        staff_role_id: interaction.fields.getTextInputValue('staff'),
+        opener_role_id: interaction.fields.getTextInputValue('openRole'),
+        auto_message: 'Olá! Descreva seu atendimento para nossa equipe.',
+        log_channel_id: null,
+        closed_category_id: null,
+        delete_after_seconds: 20,
+        pix_qr_url: null,
+        pix_key: null,
+        pix_receiver: null,
+        pix_embed_message: null,
+        transcript_type: 'txt',
+        transcript_channel_id: null,
+        feedback_channel_id: null,
+        updated_at: new Date().toISOString()
+      };
+      upsertTicketSettings(data);
+      const embed = buildPremiumEmbed({ title: data.panel_title, description: data.panel_description });
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket-open').setLabel('➡️ Abrir Ticket').setStyle(ButtonStyle.Primary)
+      );
+      await interaction.channel.send({ embeds: [embed], components: [row] });
+      return interaction.reply({ content: 'Painel de ticket enviado e configuração salva.', flags: MessageFlags.Ephemeral });
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'ticket-exit-modal') {
+      const value = interaction.fields.getTextInputValue('confirm').trim().toUpperCase();
+      if (value !== 'SAIR') {
+        return interaction.reply({ content: 'Confirmação inválida.', flags: MessageFlags.Ephemeral });
+      }
+      const ticket = getTicketByChannel(interaction.channelId);
+      if (ticket && String(ticket.opened_by) === String(interaction.user.id)) {
+        await interaction.channel.permissionOverwrites.delete(interaction.user.id).catch(() => null);
+        return interaction.reply({ content: 'Você saiu do ticket.', flags: MessageFlags.Ephemeral });
+      }
+      return interaction.reply({ content: 'Você não é o autor do ticket.', flags: MessageFlags.Ephemeral });
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.endsWith('-modal') && interaction.customId.includes('ticket-') && (interaction.customId.includes('add') || interaction.customId.includes('remove'))) {
+      const userId = interaction.fields.getTextInputValue('userId').trim();
+      const isRemove = interaction.customId.includes('remove');
+      if (isRemove) {
+        await interaction.channel.permissionOverwrites.delete(userId).catch(() => null);
+        return interaction.reply({ content: 'Usuário removido do ticket.', flags: MessageFlags.Ephemeral });
+      }
+      await interaction.channel.permissionOverwrites.edit(userId, {
+        ViewChannel: true,
+        SendMessages: true,
+        ReadMessageHistory: true
+      }).catch(() => null);
+      return interaction.reply({ content: 'Usuário adicionado ao ticket.', flags: MessageFlags.Ephemeral });
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'ticket-rename-modal') {
+      const name = interaction.fields.getTextInputValue('name').toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 90);
+      await interaction.channel.setName(name || 'ticket-renomeado').catch(() => null);
+      return interaction.reply({ content: 'Ticket renomeado.', flags: MessageFlags.Ephemeral });
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'ticket-close-modal') {
+      const ticket = getTicketByChannel(interaction.channelId);
+      if (!ticket) return interaction.reply({ content: 'Canal não é ticket.', flags: MessageFlags.Ephemeral });
+      const status = interaction.fields.getTextInputValue('status');
+      const notes = interaction.fields.getTextInputValue('notes');
+
+      const messages = await interaction.channel.messages.fetch({ limit: 100 });
+      const lines = [...messages.values()]
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+        .map((m) => `[${new Date(m.createdTimestamp).toISOString()}] ${m.author?.tag || 'unknown'}: ${m.content || '[anexo/sem texto]'}`)
+        .join('\n');
+      const transcript = Buffer.from(lines || 'Sem mensagens no ticket.', 'utf8');
+      const transcriptFile = new AttachmentBuilder(transcript, { name: `transcript-ticket-${interaction.channelId}.txt` });
+
+      const user = await interaction.client.users.fetch(ticket.opened_by).catch(() => null);
+      if (user) {
+        const summary = buildPremiumEmbed({
+          title: 'Resumo do Ticket',
+          description: `Aberto por: <@${ticket.opened_by}>
+Fechado por: <@${interaction.user.id}>
+Atendido por: ${ticket.assumed_by ? `<@${ticket.assumed_by}>` : 'Não definido'}
+Status final: ${status}
+Observações: ${notes}`
+        });
+        const feedbackEmbed = buildPremiumEmbed({
+          title: 'Avaliação do Atendimento',
+          description: 'Avalie seu atendimento para nos ajudar a melhorar.'
+        });
+        const bot = getBotContext();
+        const settings = getTicketSettings(bot.id, interaction.guildId);
+        const feedbackUrl = settings?.feedback_channel_id ? `https://discord.com/channels/${interaction.guildId}/${settings.feedback_channel_id}` : 'https://discord.com/channels/@me';
+        const fbRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(feedbackUrl).setLabel('Avaliar Atendimento'));
+        await user.send({ embeds: [summary], files: [transcriptFile] }).catch(() => null);
+        await user.send({ embeds: [feedbackEmbed], components: [fbRow] }).catch(() => null);
+      }
+
+      closeTicketRecord(interaction.channelId, interaction.user.id, status, notes);
+      await interaction.reply({ content: 'Ticket fechado com transcript enviado.', flags: MessageFlags.Ephemeral });
+
+      const bot = getBotContext();
+      const settings = getTicketSettings(bot.id, interaction.guildId);
+      if (settings?.closed_category_id) {
+        await interaction.channel.setParent(settings.closed_category_id).catch(() => null);
+        await interaction.channel.permissionOverwrites.edit(ticket.opened_by, { ViewChannel: false }).catch(() => null);
+        return;
+      }
+      const delay = Number(settings?.delete_after_seconds || 20) * 1000;
+      setTimeout(() => {
+        interaction.channel.delete('Ticket fechado').catch(() => null);
+      }, delay);
+      return;
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'cart-coupon-modal') {
